@@ -9,8 +9,8 @@ __BEGIN_SYS
 
 struct Memory_Map: public Cortex_Memory_Map
 {
-    // Physical Memory
     enum {
+        // Base addresses for memory-mapped control and I/O devices
         UART0_BASE              = 0xe0000000,
         UART1_BASE              = 0xe0001000,
         SPI0_BASE               = 0xe0006000,
@@ -30,12 +30,28 @@ struct Memory_Map: public Cortex_Memory_Map
         SCU_BASE                = 0xf8f00000, // A9 MP Snoop Control Unit
         GIC_CPU_BASE            = 0xf8f00100,
         GLOBAL_TIMER_BASE       = 0xf8f00200,
+        TSC_BASE                = GLOBAL_TIMER_BASE,
         PRIVATE_TIMER_BASE      = 0xf8f00600,
         PRIVATE_TIMER_BASE1     = 0xf8f00620,
-        GIC_DIST_BASE           = 0xf8f01000
-    };
+        GIC_DIST_BASE           = 0xf8f01000,
+        
+        VECTOR_TABLE            = RAM_BASE, // 8 x 4b instructions + 8 x 4b pointers
+        FLAT_PAGE_TABLE         = (RAM_TOP - 16 * 1024) & ~(0x3fff),  // used only with No_MMU in LIBRARY mode; 16KB, 4096 4B entries, each pointing to 1 MB regions, thus mapping up to 4 GB; 16K-aligned for TTBR;
+        BOOT_STACK              = FLAT_PAGE_TABLE - Traits<Machine>::STACK_SIZE, // will be used as the stack's base, not the stack pointer
+        FREE_TOP                = BOOT_STACK,
 
-    // Logical Address Space
+        // Logical Address Space
+        APP_LOW                 = Traits<Machine>::APP_LOW,
+        APP_HIGH                = Traits<Machine>::APP_HIGH,
+        APP_CODE                = Traits<Machine>::APP_CODE,
+        APP_DATA                = Traits<Machine>::APP_DATA,
+
+        SYS_CODE                = NOT_USED,
+        SYS_INFO                = NOT_USED,
+        SYS_DATA                = NOT_USED,
+        SYS_STACK               = NOT_USED,
+        SYS_HEAP                = NOT_USED
+    };
 };
 
 __END_SYS

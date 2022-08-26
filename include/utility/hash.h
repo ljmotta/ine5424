@@ -151,7 +151,7 @@ public:
     Hash() {}
 
     bool empty() const {
-        for(unsigned int i; i < SIZE; i++)
+        for(unsigned int i = 0; i < SIZE; i++)
             if(!_table[i].empty())
         	return false;
         return true;
@@ -159,7 +159,7 @@ public:
 
     unsigned int size() const {
         unsigned int size = 0;
-        for(unsigned int i; i < SIZE; i++)
+        for(unsigned int i = 0; i < SIZE; i++)
             size += _table[i].size();
         return size;
     }

@@ -3,100 +3,105 @@
 #ifndef __ia32_mmu_h
 #define __ia32_mmu_h
 
-#include <architecture/cpu.h>
 #include <architecture/mmu.h>
 #include <system/memory_map.h>
-#include <utility/string.h>
-#include <utility/list.h>
-#include <utility/debug.h>
 
 __BEGIN_SYS
 
 class MMU: public MMU_Common<10, 10, 12>
 {
     friend class CPU;
+    friend class Setup;
 
 private:
     typedef Grouping_List<Frame> List;
 
     static const bool colorful = Traits<MMU>::colorful;
     static const unsigned int COLORS = Traits<MMU>::COLORS;
-    static const unsigned int PHY_MEM = Memory_Map::PHY_MEM;
+    static const unsigned int RAM_BASE  = Memory_Map::RAM_BASE;
+    static const unsigned int APP_LOW   = Memory_Map::APP_LOW;
+    static const unsigned int APP_HIGH  = Memory_Map::APP_HIGH;
+    static const unsigned int PHY_MEM   = Memory_Map::PHY_MEM;
+    static const unsigned int SYS       = Memory_Map::SYS;
+    static const unsigned int SYS_HIGH  = Memory_Map::SYS_HIGH;
 
 public:
     // Page Flags
-    class IA32_Flags
+    class Page_Flags
     {
     public:
         enum {
-            PRE  = 0x001, // Presence (0=not-present, 1=present)
-            RW   = 0x002, // Write (0=read-only, 1=read-write)
-            USR  = 0x004, // Access Control (0=supervisor, 1=user)
-            PWT  = 0x008, // Cache Mode (0=write-back, 1=write-through)
-            PCD  = 0x010, // Cache Disable (0=cacheable, 1=non-cacheable)
-            ACC  = 0x020, // Accessed (0=not-accessed, 1=accessed
-            DRT  = 0x040, // Dirty (only for PTEs, 0=clean, 1=dirty)
-            PS   = 0x080, // Page Size (for PDEs, 0=4KBytes, 1=4MBytes)
-            GLB  = 0X100, // Global Page (0=local, 1=global)
-            EX   = 0x200, // User Def. (0=non-executable, 1=executable)
-            CT   = 0x400, // User Def. (0=non-contiguous, 1=contiguous)
-            IO   = 0x800, // User Def. (0=memory, 1=I/O)
+            PRE  = 1 <<  0, // Present (0=not-present, 1=present)
+            RW   = 1 <<  1, // Writable (0=read-only, 1=read-write)
+            USR  = 1 <<  2, // Access Control (0=supervisor, 1=user)
+            PWT  = 1 <<  3, // Cache mode (0=write-back, 1=write-through)
+            PCD  = 1 <<  4, // Cache disable (0=cacheable, 1=non-cacheable)
+            ACC  = 1 <<  5, // Accessed (0=not-accessed, 1=accessed
+            DRT  = 1 <<  6, // Dirty (only for PTEs, 0=clean, 1=dirty)
+            PS   = 1 <<  7, // Page Size (for PDEs, 0=4KBytes, 1=4MBytes)
+            GLB  = 1 <<  8, // Global Page (0=local, 1=global)
+            EX   = 1 <<  9, // User Def. (0=non-executable, 1=executable)
+            CT   = 1 << 10, // User Def. (0=non-contiguous, 1=contiguous)
+            IO   = 1 << 11, // User Def. (0=memory, 1=I/O)
             APP  = (PRE | RW  | ACC | USR),
+            APPC = (PRE | EX  | ACC | USR),
+            APPD = (PRE | RW  | ACC | USR),
             SYS  = (PRE | RW  | ACC),
             PCI  = (SYS | PCD | IO),
             APIC = (SYS | PCD),
             VGA  = (SYS | PCD),
             DMA  = (SYS | PCD | CT),
+            MASK = (1 << 12) - 1
         };
 
     public:
-        IA32_Flags() {}
-        IA32_Flags(const IA32_Flags & f) : _flags(f._flags) {}
-        IA32_Flags(unsigned int f) : _flags(f) {}
-        IA32_Flags(const Flags & f) : _flags(PRE | ACC |
-                                             ((f & Flags::RW)  ? RW  : 0) |
-                                             ((f & Flags::USR) ? USR : 0) |
-                                             ((f & Flags::CWT) ? PWT : 0) |
-                                             ((f & Flags::CD)  ? PCD : 0) |
-                                             ((f & Flags::CT)  ? CT  : 0) |
-                                             ((f & Flags::IO)  ? PCI : 0) ) {}
+        Page_Flags() {}
+        Page_Flags(unsigned long f) : _flags(f) {}
+        Page_Flags(Flags f) : _flags(PRE | ACC |
+                                    ((f & Flags::RW)  ? RW  : 0) |
+                                    ((f & Flags::USR) ? USR : 0) |
+                                    ((f & Flags::CWT) ? PWT : 0) |
+                                    ((f & Flags::CD)  ? PCD : 0) |
+                                    ((f & Flags::CT)  ? CT  : 0) |
+                                    ((f & Flags::IO)  ? PCI : 0) ) {}
 
-        operator unsigned int() const { return _flags; }
+        operator unsigned long() const { return _flags; }
 
-        friend Debug & operator<<(Debug & db, const IA32_Flags & f) { db << hex << f._flags; return db; }
+        friend OStream & operator<<(OStream & os, const Page_Flags & f) { os << hex << f._flags; return os; }
 
     private:
-        unsigned int _flags;
+        unsigned long _flags;
     };
 
-    // Page_Table
+    // Page Table
     class Page_Table
     {
     public:
         Page_Table() {}
 
         PT_Entry & operator[](unsigned int i) { return _entry[i]; }
+        Page_Table & log() { return *static_cast<Page_Table *>(phy2log(this)); }
 
-        void map(int from, int to, const IA32_Flags & flags, const Color & color) {
+        void map(int from, int to, Page_Flags flags, Color color) {
             Phy_Addr * addr = alloc(to - from, color);
             if(addr)
                 remap(addr, from, to, flags);
             else
                 for( ; from < to; from++) {
-                    Log_Addr * tmp = phy2log(&_entry[from]);
-                    *tmp = alloc(1, color) | flags;
+                    Log_Addr * pte = phy2log(&_entry[from]);
+                    *pte = phy2pte(alloc(1, color), flags);
                 }
         }
 
-        void map_contiguous(int from, int to, const IA32_Flags & flags, const Color & color) {
+        void map_contiguous(int from, int to, Page_Flags flags, Color color) {
             remap(alloc(to - from, color), from, to, flags);
         }
 
-        void remap(Phy_Addr addr, int from, int to, const IA32_Flags & flags) {
+        void remap(Phy_Addr addr, int from, int to, Page_Flags flags) {
             addr = align_page(addr);
             for( ; from < to; from++) {
-                Log_Addr * tmp = phy2log(&_entry[from]);
-                *tmp = addr | flags;
+                Log_Addr * pte = phy2log(&_entry[from]);
+                *pte = phy2pte(addr, flags);
                 addr += sizeof(Page);
             }
         }
@@ -104,27 +109,26 @@ public:
         void unmap(int from, int to) {
             for( ; from < to; from++) {
                 free(_entry[from]);
-                Log_Addr * tmp = phy2log(&_entry[from]);
-                *tmp = 0;
+                Log_Addr * pte = phy2log(&_entry[from]);
+                *pte = 0;
             }
         }
 
-        friend Debug & operator<<(Debug & db, Page_Table & pt) {
-            db << "{\n";
-            int brk = 0;
+        friend OStream & operator<<(OStream & os, Page_Table & pt) {
+            os << "{\n";
             for(unsigned int i = 0; i < PT_ENTRIES; i++)
-                if(pt[i]) {
-                    db << "[" << i << "]=" << pt[i] << "  ";
-                    if(!(++brk % 4))
-                        db << "\n";
-                }
-            db << "\n}";
-            return db;
+                if(pt[i])
+                    os << "[" << i << "] \t" << pte2phy(pt[i]) << "\n";
+            os << "}";
+            return os;
         }
 
     private:
-        PT_Entry _entry[PT_ENTRIES];
+        PT_Entry _entry[PT_ENTRIES]; // the Phy_Addr in each entry passed through phy2pte()
     };
+
+    // Page Directory
+    typedef Page_Table Page_Directory;
 
     // Chunk (for Segment)
     class Chunk
@@ -132,41 +136,44 @@ public:
     public:
         Chunk() {}
 
-        Chunk(unsigned int bytes, const Flags & flags, const Color & color = WHITE)
-        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(IA32_Flags(flags)), _pt(calloc(_pts, WHITE)) {
-            if(flags & IA32_Flags::CT)
+        Chunk(unsigned int bytes, Flags flags, Color color = WHITE)
+        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)), _pt(calloc(_pts, WHITE)) {
+            if(_flags & Page_Flags::CT)
                 _pt->map_contiguous(_from, _to, _flags, color);
             else
                 _pt->map(_from, _to, _flags, color);
         }
 
-        Chunk(const Phy_Addr & phy_addr, unsigned int bytes, const Flags & flags)
-        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(IA32_Flags(flags)), _pt(calloc(_pts, WHITE)) {
+        Chunk(Phy_Addr phy_addr, unsigned int bytes, Flags flags)
+        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)), _pt(calloc(_pts, WHITE)) {
             _pt->remap(phy_addr, _from, _to, flags);
         }
 
+        Chunk(Phy_Addr pt, unsigned int from, unsigned int to, Flags flags)
+        : _from(from), _to(to), _pts(page_tables(_to - _from)), _flags(flags), _pt(pt) {}
+
         ~Chunk() {
-            if(!(_flags & IA32_Flags::IO)) {
-                if(_flags & IA32_Flags::CT)
-                    free((*static_cast<Page_Table *>(phy2log(_pt)))[_from], _to - _from);
+            if(!(_flags & Page_Flags::IO)) {
+                if(_flags & Page_Flags::CT)
+                    free((*_pt)[_from], _to - _from);
                 else
                     for( ; _from < _to; _from++)
-                        free((*static_cast<Page_Table *>(phy2log(_pt)))[_from]);
+                        free((*_pt)[_from]);
             }
             free(_pt, _pts);
         }
 
         unsigned int pts() const { return _pts; }
-        IA32_Flags flags() const { return _flags; }
+        Page_Flags flags() const { return _flags; }
         Page_Table * pt() const { return _pt; }
         unsigned int size() const { return (_to - _from) * sizeof(Page); }
 
         Phy_Addr phy_address() const {
-            return (_flags & IA32_Flags::CT) ? Phy_Addr(indexes((*_pt)[_from])) : Phy_Addr(false);
+            return (_flags & Page_Flags::CT) ? Phy_Addr(indexes((*_pt)[_from])) : Phy_Addr(false);
         }
 
         int resize(unsigned int amount) {
-            if(_flags & IA32_Flags::CT)
+            if(_flags & Page_Flags::CT)
                 return 0;
 
             unsigned int pgs = pages(amount);
@@ -177,7 +184,7 @@ public:
             if(free_pgs < pgs) { // resize _pt
                 unsigned int pts = _pts + page_tables(pgs - free_pgs);
                 Page_Table * pt = calloc(pts, color);
-                memcpy(pt, _pt, _pts * sizeof(Page));
+                memcpy(phy2log(pt), phy2log(_pt), _pts * sizeof(Page));
                 free(_pt, _pts);
                 _pt = pt;
                 _pts = pts;
@@ -193,19 +200,22 @@ public:
         unsigned int _from;
         unsigned int _to;
         unsigned int _pts;
-        IA32_Flags _flags;
-        Page_Table * _pt;
+        Page_Flags _flags;
+        Page_Table * _pt; // this is a physical address
     };
-
-    // Page Directory
-    typedef Page_Table Page_Directory;
 
     // Directory (for Address_Space)
     class Directory
     {
     public:
         Directory() : _pd(calloc(1, WHITE)), _free(true) {
-            for(unsigned int i = directory(PHY_MEM); i < PD_ENTRIES; i++)
+            if(PHY_MEM < APP_LOW)
+                for(unsigned int i = directory(PHY_MEM); i < directory(APP_LOW); i++)
+                    (*_pd)[i] = (*_master)[i];
+            else
+                for(unsigned int i = directory(APP_LOW); i < directory(PHY_MEM); i++)
+                    (*_pd)[i] = (*_master)[i];
+            for(unsigned int i = directory(SYS); i <= directory(SYS_HIGH); i++)
                 (*_pd)[i] = (*_master)[i];
         }
 
@@ -215,62 +225,69 @@ public:
 
         Phy_Addr pd() const { return _pd; }
 
-        void activate() const { CPU::pdp(reinterpret_cast<CPU::Reg32>(_pd)); }
+        void activate() const { MMU::pd(_pd); }
 
-        Log_Addr attach(const Chunk & chunk, unsigned int from = 0) {
-            for(unsigned int i = from; i < PD_ENTRIES; i++)
+        Log_Addr attach(const Chunk & chunk, unsigned int from = directory(APP_LOW)) {
+            for(unsigned int i = from; (i + chunk.pts()) <= directory(APP_HIGH); i++)
                 if(attach(i, chunk.pt(), chunk.pts(), chunk.flags()))
                     return i << DIRECTORY_SHIFT;
-            return false;
+            return Log_Addr(false);
         }
 
-        Log_Addr attach(const Chunk & chunk, const Log_Addr & addr) {
+        Log_Addr attach(const Chunk & chunk, Log_Addr addr) {
             unsigned int from = directory(addr);
-            if(!attach(from, chunk.pt(), chunk.pts(), chunk.flags()))
+            if((from + chunk.pts()) > PD_ENTRIES)
                 return Log_Addr(false);
-            return from << DIRECTORY_SHIFT;
+            if(attach(from, chunk.pt(), chunk.pts(), chunk.flags()))
+                return from << DIRECTORY_SHIFT;
+            return Log_Addr(false);
         }
 
         void detach(const Chunk & chunk) {
-            for(unsigned int i = 0; i < PD_ENTRIES; i++)
-                if(indexes((*_pd)[i]) == indexes(chunk.pt())) {
+            for(unsigned int i = 0; i < PD_ENTRIES; i++) {
+                if(indexes(pte2phy((*_pd)[i])) == indexes(chunk.pt())) {
                     detach(i, chunk.pt(), chunk.pts());
-                return;
+                    return;
+                }
             }
             db<MMU>(WRN) << "MMU::Directory::detach(pt=" << chunk.pt() << ") failed!" << endl;
         }
 
-        void detach(const Chunk & chunk, const Log_Addr & addr) {
+        void detach(const Chunk & chunk, Log_Addr addr) {
             unsigned int from = directory(addr);
-            if(indexes((*static_cast<Log_Addr *>(phy2log(_pd)))[from]) != indexes(chunk.pt())) {
+            if(indexes(pte2phy((*_pd)[from])) != indexes(chunk.pt())) {
                 db<MMU>(WRN) << "MMU::Directory::detach(pt=" << chunk.pt() << ",addr=" << addr << ") failed!" << endl;
                 return;
             }
             detach(from, chunk.pt(), chunk.pts());
         }
 
-        Phy_Addr physical(const Log_Addr & addr) {
-            Page_Table * pt = reinterpret_cast<Page_Table *>((void *)(*_pd)[directory(addr)]);
-            return (*pt)[page(addr)] | offset(addr);
+        Phy_Addr physical(Log_Addr addr) {
+            PD_Entry pde = (*_pd)[directory(addr)];
+            Page_Table * pt = static_cast<Page_Table *>(pde2phy(pde));
+            PT_Entry pte = pt->log()[page(addr)];
+            return pte | offset(addr);
         }
 
     private:
-        bool attach(unsigned int from, const Page_Table * pt, unsigned int n, IA32_Flags flags) {
+        bool attach(unsigned int from, const Page_Table * pt, unsigned int n, Page_Flags flags) {
             for(unsigned int i = from; i < from + n; i++)
-                if((*static_cast<Page_Directory *>(phy2log(_pd)))[i])
+                if(_pd->log()[i])
                     return false;
             for(unsigned int i = from; i < from + n; i++, pt++)
-                (*static_cast<Page_Directory *>(phy2log(_pd)))[i] = Phy_Addr(pt) | flags;
+                _pd->log()[i] = phy2pde(Phy_Addr(pt), flags);
             return true;
         }
 
         void detach(unsigned int from, const Page_Table * pt, unsigned int n) {
-            for(unsigned int i = from; i < from + n; i++)
-                (*static_cast<Page_Directory *>(phy2log(_pd)))[i] = 0;
+            for(unsigned int i = from; i < from + n; i++) {
+                _pd->log()[i] = 0;
+                flush_tlb(i << DIRECTORY_SHIFT);
+            }
         }
 
     private:
-        Page_Directory * _pd;
+        Page_Directory * _pd;  // this is a physical address, but operator*() returns a logical address
         bool _free;
     };
 
@@ -278,13 +295,13 @@ public:
     class DMA_Buffer: public Chunk
     {
     public:
-        DMA_Buffer(unsigned int s) : Chunk(s, IA32_Flags::DMA) {
+        DMA_Buffer(unsigned int s) : Chunk(s, Page_Flags::DMA) {
             Directory dir(current());
-            _log_addr = dir.attach(*this, MMU::directory(PHY_MEM));
+            _log_addr = dir.attach(*this);
             db<MMU>(TRC) << "MMU::DMA_Buffer() => " << *this << endl;
         }
 
-        DMA_Buffer(unsigned int s, const Log_Addr & d): Chunk(s, IA32_Flags::DMA) {
+        DMA_Buffer(unsigned int s, Log_Addr d): Chunk(s, Page_Flags::DMA) {
             Directory dir(current());
             _log_addr = dir.attach(*this);
             memcpy(_log_addr, d, s);
@@ -293,22 +310,44 @@ public:
 
         Log_Addr log_address() const { return _log_addr; }
 
-        friend Debug & operator<<(Debug & db, const DMA_Buffer & b) {
-            db << "{phy=" << b.phy_address()
-               << ",log=" << b.log_address()
-               << ",size=" << b.size()
-               << ",flags=" << b.flags() << "}";
-            return db;
+        friend OStream & operator<<(OStream & os, const DMA_Buffer & b) {
+            os << "{phy=" << b.phy_address() << ",log=" << b.log_address() << ",size=" << b.size() << ",flags=" << b.flags() << "}";
+            return os;
         }
 
     private:
         Log_Addr _log_addr;
     };
 
+    // Class Translation performs manual logical to physical address translations for debugging purposes only
+    class Translation
+    {
+    public:
+        Translation(Log_Addr addr, bool pt = false, Page_Directory * pd = 0): _addr(addr), _show_pt(pt), _pd(pd) {}
+
+        friend OStream & operator<<(OStream & os, const Translation & t) {
+            Page_Directory * pd = t._pd ? t._pd : current();
+            PD_Entry pde = pd->log()[directory(t._addr)];
+            Page_Table * pt = static_cast<Page_Table *>(pde2phy(pde));
+            PT_Entry pte = pt->log()[page(t._addr)];
+
+            os << "{addr=" << static_cast<void *>(t._addr) << ",pd=" << pd << ",pd[" << directory(t._addr) << "]=" << pde << ",pt=" << pt;
+            if(t._show_pt)
+                os << "=>" << pt->log();
+            os << ",pt[" << page(t._addr) << "]=" << pte << ",f=" << pte2phy(pte) << ",*addr=" << hex << *static_cast<unsigned int *>(t._addr) << "}";
+            return os;
+        }
+
+    private:
+        Log_Addr _addr;
+        bool _show_pt;
+        Page_Directory * _pd;
+    };
+
 public:
     MMU() {}
 
-    static Phy_Addr alloc(unsigned int frames = 1, const Color & color = WHITE) {
+    static Phy_Addr alloc(unsigned int frames = 1, Color color = WHITE) {
         Phy_Addr phy(false);
 
         if(frames) {
@@ -326,11 +365,9 @@ public:
         return phy;
     }
 
-    static Phy_Addr calloc(unsigned int frames = 1, const Color & color = WHITE) {
+    static Phy_Addr calloc(unsigned int frames = 1, Color color = WHITE) {
         Phy_Addr phy = alloc(frames, color);
-
         memset(phy2log(phy), 0, sizeof(Frame) * frames);
-
         return phy;
     }
 
@@ -361,42 +398,46 @@ public:
         }
     }
 
-    static unsigned int allocable(const Color & color = WHITE) { return _free[color].head() ? _free[color].head()->size() : 0; }
+    static unsigned int allocable(Color color = WHITE) { return _free[color].head() ? _free[color].head()->size() : 0; }
 
-    static Page_Directory * volatile current() {
-        return reinterpret_cast<Page_Directory * volatile>(CPU::pdp());
-    }
+    static Page_Directory * volatile current() { return static_cast<Page_Directory * volatile>(pd()); }
 
-    static Phy_Addr physical(const Log_Addr & addr) {
+    static Phy_Addr physical(Log_Addr addr) {
         Page_Directory * pd = current();
-        Page_Table * pt = (*pd)[directory(addr)];
-        return (*pt)[page(addr)] | offset(addr);
+        Page_Table * pt = pd->log()[directory(addr)];
+        return pt->log()[page(addr)] | offset(addr);
     }
 
-    static void flush_tlb() {
-        ASM("movl %cr3,%eax");
-        ASM("movl %eax,%cr3");
-    }
-    static void flush_tlb(const Log_Addr & addr) {
-        ASM("invlpg %0" : : "m"(addr));
-    }
+    static PT_Entry phy2pte(Phy_Addr frame, Page_Flags flags) { return frame | flags; }
+    static Phy_Addr pte2phy(PT_Entry entry) { return (entry & ~Page_Flags::MASK); }
+    static Page_Flags pte2flg(PT_Entry entry) { return (entry & Page_Flags::MASK); }
+    static PD_Entry phy2pde(Phy_Addr frame, Page_Flags flags) { return frame | flags; }
+    static Phy_Addr pde2phy(PD_Entry entry) { return (entry & ~Page_Flags::MASK); }
+    static Page_Flags pde2flg(PT_Entry entry) { return (entry & Page_Flags::MASK); }
 
-private:
-    static void init();
+    static Log_Addr phy2log(Phy_Addr phy) { return Log_Addr((RAM_BASE == PHY_MEM) ? phy : (RAM_BASE > PHY_MEM) ? phy - (RAM_BASE - PHY_MEM) : phy + (PHY_MEM - RAM_BASE)); }
+    static Phy_Addr log2phy(Log_Addr log) { return Phy_Addr((RAM_BASE == PHY_MEM) ? log : (RAM_BASE > PHY_MEM) ? log + (RAM_BASE - PHY_MEM) : log - (PHY_MEM - RAM_BASE)); }
 
-    static Log_Addr phy2log(const Phy_Addr & phy) { return phy | PHY_MEM; }
+    static Color phy2color(Phy_Addr phy) { return static_cast<Color>(colorful ? ((phy >> PAGE_SHIFT) & 0x7f) % COLORS : WHITE); } // TODO: what is 0x7f
 
-    static Color phy2color(const Phy_Addr & phy) { return static_cast<Color>(colorful ? ((phy >> PAGE_SHIFT) & 0x7f) % COLORS : WHITE); } // TODO: what is 0x7f
-
-    static Color log2color(const Log_Addr & log) {
+    static Color log2color(Log_Addr log) {
         if(colorful) {
             Page_Directory * pd = current();
-            Page_Table * pt = (*pd)[directory(log)];
-            Phy_Addr phy = (*pt)[page(log)] | offset(log);
+            Page_Table * pt = pd->log()[directory(log)];
+            Phy_Addr phy = pt->log()[page(log)] | offset(log);
             return static_cast<Color>(((phy >> PAGE_SHIFT) & 0x7f) % COLORS);
         } else
             return WHITE;
     }
+
+private:
+    static Phy_Addr pd() { return CPU::pd(); }
+    static void pd(Phy_Addr pd) { CPU::pd(pd); }
+
+    static void flush_tlb() { CPU::flush_tlb(); }
+    static void flush_tlb(Log_Addr addr) { CPU::flush_tlb(addr); }
+
+    static void init();
 
 private:
     static List _free[colorful * COLORS + 1]; // +1 for WHITE

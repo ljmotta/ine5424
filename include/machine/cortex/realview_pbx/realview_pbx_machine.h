@@ -11,7 +11,7 @@
 
 __BEGIN_SYS
 
-class Realview_PBX: public Machine_Common
+class Realview_PBX: private Machine_Common
 {
     friend Machine; // for pre_init() and init()
 
@@ -22,7 +22,8 @@ private:
 public:
     Realview_PBX() {}
 
-    static void delay(const Microsecond & time);
+    using Machine_Common::delay;
+    using Machine_Common::clear_bss;
 
     static void reboot();
     static void poweroff() { reboot(); }
@@ -30,14 +31,10 @@ public:
     static const UUID & uuid() { return System::info()->bm.uuid; }
 
 public:
-    static void smp_barrier_init(unsigned int n_cpus) {
-        // TODO: I guess this should be in SETUP, so all machines get to INIT with all designated cores enabled
-        // so this method only deals with the barrier initialization (if needed)
-        gic_distributor()->smp_init(n_cpus);
-    }
+    static void smp_barrier_init(unsigned int n_cpus) { _cores = n_cpus; }
 
 private:
-    static void pre_init();
+    static void pre_init() {}
     static void init() {}
 
 private:

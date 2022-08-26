@@ -7,7 +7,7 @@
 
 using namespace EPOS;
 
-const int iterations = 100;
+const int iterations = 128;
 
 OStream cout;
 
@@ -21,7 +21,7 @@ int consumer()
     int out = 0;
     for(int i = 0; i < iterations; i++) {
         full.p();
-        cout << "C<-" << buffer[out] << "\t";
+        cout << "C<-" << buffer[out] << " ";
         out = (out + 1) % BUF_SIZE;
         Alarm::delay(100000);
         empty.v();
@@ -42,7 +42,7 @@ int main()
         empty.p();
         Alarm::delay(100000);
         buffer[in] = 'a' + in;
-        cout << "P->" << buffer[in] << "\t";
+        cout << "P->" << buffer[in] << " ";
         in = (in + 1) % BUF_SIZE;
         full.v();
     }

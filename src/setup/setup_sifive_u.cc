@@ -1,222 +1,158 @@
-// EPOS RISC-V sifive SETUP
+// EPOS SiFive-U (RISC-V) SETUP
 
-#include <system/config.h>
+#include <architecture.h>
+#include <machine.h>
+#include <utility/elf.h>
+#include <utility/string.h>
 
-extern "C" { void _vector_table() __attribute__ ((used, naked, section(".init"))); }
+extern "C" {
+    void _start();
 
-// Interrupt Vector Table
-void _vector_table()
+    void _int_entry();
+
+    // SETUP entry point is in .init (and not in .text), so it will be linked first and will be the first function after the ELF header in the image
+    void _entry() __attribute__ ((used, naked, section(".init")));
+    void _setup();
+
+    // LD eliminates this variable while performing garbage collection, that's why the used attribute.
+    char __boot_time_system_info[sizeof(EPOS::S::System_Info)] __attribute__ ((used)) = "<System_Info placeholder>"; // actual System_Info will be added by mkbi!
+}
+
+__BEGIN_SYS
+
+extern OStream kout, kerr;
+
+class Setup
 {
-    ASM("\t\n\
-    j _reset                                                                    \t\n\
-    .align 4                                                                    \t\n\
-vec:                                                                            \t\n\
-    IRQ0:                                                                       \t\n\
-        j _exception_handling                                                   \t\n\
-    IRQ1:                                                                       \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ2:                                                                       \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ3:                                                                       \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ4:                                                                       \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ5:                                                                       \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ6:                                                                       \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ7:                                                                       \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ8:                                                                       \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ9:                                                                       \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ10:                                                                      \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ11:                                                                      \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ12:                                                                      \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ13:                                                                      \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ14:                                                                      \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ15:                                                                      \t\n\
-        j _int_entry                                                            \t\n\
-    IRQ16:                                                                      \t\n\
-        j _int_entry                                                            \t\n\
-                                                                                \t\n\
-_reset:                                                                         \t\n\
-                                                                                \t\n\
-        csrr    t0, mcause                                                      \t\n\
-        bnez    t0, _exception_handling                                         \t\n\
-                                                                                \t\n\
-        # SATP should be zero, but let's make sure. Each HART has its own       \t\n\
-        # SATP register.                                                        \t\n\
-        csrw    satp, zero                                                      \t\n\
-                                                                                \t\n\
-        # Any hardware threads (hart) that are not bootstrapping                \t\n\
-        # need to wait for an IPI                                               \t\n\
-        csrr    t0, mhartid                                                     \t\n\
-        bnez    t0, 3f                                                          \t\n\
-                                                                                \t\n\
-        # Disable linker instruction relaxation for the `la` instruction below. \t\n\
-        # This disallows the assembler from assuming that `gp` is already initialized \t\n\
-        # This causes the value stored in `gp` to be calculated from `pc`.      \t\n\
-        # The job of the global pointer is to give the linker the ability to address \t\n\
-        # memory relative to GP instead of as an absolute address.              \t\n\
-.option push                                                                    \t\n\
-.option norelax                                                                 \t\n\
-    la      gp, end                                                             \t\n\
-.option pop                                                                     \t\n\
-                                                                                \t\n\
-        # Set all bytes in the BSS section to zero.                             \t\n\
-        #la      a0, __bss_start__                                              \t\n\
-        #la      a1, __bss_end__                                                \t\n\
-        #bgeu    a0, a1, 2f                                                     \t\n\
-1:                                                                              \t\n\
-        #sw      zero, (a0)                                                     \t\n\
-        #addi    a0, a0, 8                                                      \t\n\
-        #bltu    a0, a1, 1b                                                     \t\n\
-        #li t0, 0x10000000                                                      \t\n\
-        #li t1, 0x3                                                             \t\n\
-        #sw t1, 3(t0)                                                           \t\n\
-        #li t2, 0x1                                                             \t\n\
-        #sw t2, 2(t0)                                                           \t\n\
-        #sw t2, 1(t0)                                                           \t\n\
-        #li t3, 0xd                                                             \t\n\
-        #slli t2, t2, 0x7                                                       \t\n\
-        #or t2, t1, t2                                                          \t\n\
-        #sw t2, 3(t0)                                                           \t\n\
-        #sw t3, 0(t0)                                                           \t\n\
-        #li t3, 0x0                                                             \t\n\
-        #sw t3, 1(t0)                                                           \t\n\
-        #sw t1, 3(t0)                                                           \t\n\
-        #lui t0, 0x10000                                                        \t\n\
-        #li t1, 0x0                                                             \t\n\
-        #addi t1, t1, 72                                                        \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-        #li t1, 101                                                             \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-        #li t1, 108                                                             \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-        #li t1, 108                                                             \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-        #li t1, 111                                                             \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-                                                                                \t\n\
-        #write ,                                                                \t\n\
-        #li t1, 44                                                              \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-                                                                                \t\n\
-        # write ' '                                                             \t\n\
-        #li t1, 32                                                              \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-                                                                                \t\n\
-        #write World                                                            \t\n\
-        #li t1, 87                                                              \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-        #li t1, 111                                                             \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-        #li t1, 114                                                             \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-        #li t1, 108                                                             \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-        #li t1, 100                                                             \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-                                                                                \t\n\
-        #write !                                                                \t\n\
-        #li t1, 33                                                              \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-                                                                                \t\n\
-        #write EOL                                                              \t\n\
-        #li t1, 10                                                              \t\n\
-        #sw t1, 0(t0)                                                           \t\n\
-2:                                                                              \t\n\
-        # Control registers, set the stack, mstatus, mepc,                      \t\n\
-        # and mtvec to return to the main function.                             \t\n\
-        # li        t5, 0xffff;                                                 \t\n\
-        # csrw  medeleg, t5                                                     \t\n\
-        # csrw  mideleg, t5                                                     \t\n\
-        la      sp, __boot_stack__                                              \t\n\
-        li      t0, 0x1                                                         \t\n\
-        slli    t0, t0, 15                                                      \t\n\
-        csrr    a0, mhartid                                                     \t\n\
-        mul     t0, t0, a0                                                      \t\n\
-        sub     sp, sp, t0                                                      \t\n\
-                                                                                \t\n\
-        # Setting `mstatus` register:                                           \t\n\
-        # 0b11 << 11: Machine's previous protection mode is 3 (MPP=3).          \t\n\
-        #       0 = USER                                                        \t\n\
-        #       1 = SUPERVISOR                                                  \t\n\
-        #       3 = MACHINE                                                     \t\n\
-        # 1 << 7    : Machine's previous interrupt-enable bit is 1 (MPIE=1).    \t\n\
-        # 1 << 3    : Machine's interrupt-enable bit is 1 (MIE=1).              \t\n\
-        li      t0, (0b11 << 11) | (1 << 7) | (1 << 3)                          \t\n\
-        csrw    mstatus, t0                                                     \t\n\
-                                                                                \t\n\
-        # seting paging disabled                                                \t\n\
-        csrw sptbr, zero                                                        \t\n\
-                                                                                \t\n\
-        # Machine's exception program counter (MEPC) is set to `_start`.        \t\n\
-        la      t1, _start                                                      \t\n\
-        csrw    mepc, t1                                                        \t\n\
-                                                                                \t\n\
-        # Machine's trap vector base address is set to `asm_trap_vector`.       \t\n\
-        #la      t2, _vector_table                                              \t\n\
-        la      t2, vec                                                         \t\n\
-        ori     t2, t2, 0x1                                                     \t\n\
-        csrw    mtvec, t2                                                       \t\n\
-                                                                                \t\n\
-        # Setting Machine's interrupt-enable bits (`mie` register):             \t\n\
-        # 1 << 3 : Machine's M-mode software interrupt-enable bit is 1 (MSIE=1) \t\n\
-        # 1 << 7 : Machine's timer interrupt-enable bit is 1 (MTIE=1).          \t\n\
-        # 1 << 11: Machine's external interrupt-enable bit is 1 (MEIE=1).       \t\n\
-        li      t3, (1 << 3) | (1 << 7) | (1 << 11)                             \t\n\
-        csrw    mie, t3                                                         \t\n\
-                                                                                \t\n\
-        mret                                                                    \t\n\
-3:                                                                              \t\n\
-                                                                                \t\n\
-        la      sp, __boot_stack__                                              \t\n\
-        li      t0, 0x1                                                         \t\n\
-        slli    t0, t0, 15                                                      \t\n\
-        csrr    a0, mhartid                                                     \t\n\
-        mul     t0, t0, a0                                                      \t\n\
-        sub     sp, sp, t0                                                      \t\n\
-                                                                                \t\n\
-        # The parked harts will be put into machine mode with interrupts enabled \t\n\
-        li      t0, 0b11 << 11 | (1 << 7) | (1 << 13)                           \t\n\
-        csrw    mstatus, t0                                                     \t\n\
-                                                                                \t\n\
-        # Allow for MSIP (Software interrupt). We will write the MSIP from hart #0 to \t\n\
-        # awaken these parked harts.                                            \t\n\
-        li      t3, (1 << 3)                                                    \t\n\
-        csrw    mie, t3                                                         \t\n\
-                                                                                \t\n\
-        # Machine's exception program counter (MEPC) is set to the initialization \t\n\
-        # code and waiting loop.                                                \t\n\
-        la  t1, wait                                                            \t\n\
-        csrw mepc, t1                                                           \t\n\
-                                                                                \t\n\
-        # Machine's trap vector base address is set to `m_trap_vector`, for     \t\n\
-        # 'machine' trap vector. The Rust initialization routines will give each \t\n\
-        # hart its own trap frame. We can use the same trap function and distinguish \t\n\
-        # between each hart by looking at the trap frame.                       \t\n\
-        # la      t2, asm_trap_vector                                           \t\n\
-        #la      t2, _vector_table                                              \t\n\
-        la      t2, vec                                                         \t\n\
-        ori     t2, t2, 0x1                                                     \t\n\
-        csrw    mtvec, t2                                                       \t\n\
-                                                                                \t\n\
-        # Whenever our hart is done initializing, we want it to return to the waiting \t\n\
-        # loop, which is just below mret.                                       \t\n\
-        # We use mret here so that the mstatus register is properly updated.    \t\n\
-        mret                                                                    \t\n\
-                                                                                \t\n\
-wait:                                                                           \t\n\
-                                                                                \t\n\
-        wfi                                                                     \t\n\
-        j _start                                                                \t\n\
-        ");
+private:
+    // Physical memory map
+    static const unsigned long RAM_BASE         = Memory_Map::RAM_BASE;
+    static const unsigned long RAM_TOP          = Memory_Map::RAM_TOP;
+    static const unsigned long MIO_BASE         = Memory_Map::MIO_BASE;
+    static const unsigned long MIO_TOP          = Memory_Map::MIO_TOP;
+    static const unsigned long FREE_BASE        = Memory_Map::FREE_BASE;
+    static const unsigned long FREE_TOP         = Memory_Map::FREE_TOP;
+    static const unsigned long SETUP            = Memory_Map::SETUP;
+    static const unsigned long BOOT_STACK       = Memory_Map::BOOT_STACK;
+
+    // Architecture Imports
+    typedef CPU::Reg Reg;
+    typedef CPU::Phy_Addr Phy_Addr;
+    typedef CPU::Log_Addr Log_Addr;
+
+public:
+    Setup();
+
+private:
+    void say_hi();
+    void call_next();
+
+    void panic() { Machine::panic(); }
+
+private:
+    System_Info * si;
+};
+
+
+Setup::Setup()
+{
+    CPU::int_disable(); // interrupts will be re-enabled at init_end
+
+    Display::init();
+
+    si = reinterpret_cast<System_Info *>(&__boot_time_system_info);
+    if(si->bm.n_cpus > Traits<Machine>::CPUS)
+        si->bm.n_cpus = Traits<Machine>::CPUS;
+
+    db<Setup>(TRC) << "Setup(si=" << reinterpret_cast<void *>(si) << ",sp=" << CPU::sp() << ")" << endl;
+    db<Setup>(INF) << "Setup:si=" << *si << endl;
+
+    // Print basic facts about this EPOS instance
+    say_hi();
+
+    // SETUP ends here, so let's transfer control to the next stage (INIT or APP)
+    call_next();
+}
+
+
+void Setup::say_hi()
+{
+    db<Setup>(TRC) << "Setup::say_hi()" << endl;
+    db<Setup>(INF) << "System_Info=" << *si << endl;
+
+    kout << endl;
+
+    if(si->bm.application_offset == -1U) {
+        db<Setup>(ERR) << "No APPLICATION in boot image, you don't need EPOS!" << endl;
+        panic();
+    }
+
+    kout << "This is EPOS!\n" << endl;
+    kout << "Setting up this machine as follows: " << endl;
+    kout << "  Mode:         " << ((Traits<Build>::MODE == Traits<Build>::LIBRARY) ? "library" : (Traits<Build>::MODE == Traits<Build>::BUILTIN) ? "built-in" : "kernel") << endl;
+    kout << "  Processor:    " << Traits<Machine>::CPUS << " x RV64 at " << Traits<CPU>::CLOCK / 1000000 << " MHz (BUS clock = " << Traits<CPU>::CLOCK / 1000000 << " MHz)" << endl;
+    kout << "  Machine:      SiFive-U" << endl;
+    kout << "  Memory:       " << (RAM_TOP + 1 - RAM_BASE) / 1024 << " KB [" << reinterpret_cast<void *>(RAM_BASE) << ":" << reinterpret_cast<void *>(RAM_TOP) << "]" << endl;
+    kout << "  User memory:  " << (FREE_TOP - FREE_BASE) / 1024 << " KB [" << reinterpret_cast<void *>(FREE_BASE) << ":" << reinterpret_cast<void *>(FREE_TOP) << "]" << endl;
+    kout << "  I/O space:    " << (MIO_TOP + 1 - MIO_BASE) / 1024 << " KB [" << reinterpret_cast<void *>(MIO_BASE) << ":" << reinterpret_cast<void *>(MIO_TOP) << "]" << endl;
+    kout << "  Node Id:      ";
+    if(si->bm.node_id != -1)
+        kout << si->bm.node_id << " (" << Traits<Build>::NODES << ")" << endl;
+    else
+        kout << "will get from the network!" << endl;
+    kout << "  Position:     ";
+    if(si->bm.space_x != -1)
+        kout << "(" << si->bm.space_x << "," << si->bm.space_y << "," << si->bm.space_z << ")" << endl;
+    else
+        kout << "will get from the network!" << endl;
+    if(si->bm.extras_offset != -1UL)
+        kout << "  Extras:       " << si->lm.app_extra_size << " bytes" << endl;
+
+    kout << endl;
+}
+
+void Setup::call_next()
+{
+    // Check for next stage and obtain the entry point
+    Log_Addr pc;
+
+    pc = &_start;
+
+    db<Setup>(INF) << "SETUP ends here!" << endl;
+
+    // Call next stage
+    static_cast<void (*)()>(pc)();
+
+    // SETUP is now part of the free memory and this point should never be reached, but, just in case ... :-)
+    db<Setup>(ERR) << "OS failed to init!" << endl;
+}
+
+__END_SYS
+
+using namespace EPOS::S;
+
+void _entry() // machine mode
+{
+    if(CPU::mhartid() != 0)                             // SiFive-U requires 2 cores, so we disable core 1 here
+        CPU::halt();
+
+    CPU::mstatusc(CPU::MIE);                            // disable interrupts
+    CPU::mies(CPU::MSI | CPU::MTI | CPU::MEI);          // enable interrupts at CLINT so IPI and timer can be triggered
+    CLINT::mtvec(CLINT::DIRECT, _int_entry);            // setup a preliminary machine mode interrupt handler pointing it to _int_entry
+
+    CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE - sizeof(long)); // set this hart stack
+
+    CPU::mstatus(CPU::MPP_M | CPU::MPIE);               // stay in machine mode and reenable interrupts at mret
+
+    CPU::mepc(CPU::Reg(&_setup));                       // entry = _setup
+    CPU::mret();                                        // enter supervisor mode at setup (mepc) with interrupts enabled (mstatus.mpie = true)
+}
+
+void _setup() // supervisor mode
+{
+    CPU::mie(CPU::MSI);                                 // enable MSI at CLINT so IPI can be triggered
+
+    Machine::clear_bss();
+
+    Setup setup;
 }

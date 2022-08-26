@@ -400,7 +400,7 @@ extern "C"
         return (rtnval);
     }
 
-    long atol(const char *s)
+    long atol(const char * s)
     {
         long ret=0; bool neg=false;
 
@@ -416,41 +416,41 @@ extern "C"
         return neg ? -ret : ret;
     }
 
-    char *itoa(int value, char *str)
+    char * itoa(int value, char * str)
     {
-        char *s = str;
+        char * s = str;
         char buffer[11];
-        char *buf = buffer;
+        char * buf = buffer;
         unsigned int v;
 
-        if (value < 0) {
+        if(value < 0) {
             *s++ = '-';
             v = -value;
         } else {
-            if (value == 0)
+            if(value == 0)
                 *s++ = '0';
             v = (unsigned int) value;
         }
 
-        while (v) {
+        while(v) {
             int i = v % 10;
             v /= 10;
             *buf++ = i + '0';
         }
 
-        while (buf > buffer)
+        while(buf > buffer)
             *s++ = *--buf;
         *s = 0;
 
         return str;
     }
 
-    int utoa(unsigned long v,char * dst)
+    int utoa(unsigned long v, char * dst)
     {
         int i = 0;
         unsigned long j;
-        // special case for v=0
-        if (v == 0)
+
+        if(v == 0)
             dst[i++] = '0';
         for(j = v; j != 0; i++, j /= 10);
         for(j = 0; v != 0; j++, v /= 10)
@@ -458,14 +458,12 @@ extern "C"
         return i;
     }
 
-    int atoi(const char *s)
+    int atoi(const char * s)
     {
-        int i;
-        i = 0;
+        int i = 0;
         while(*s) {
             i = (i << 3) + (i << 1) + (*s - '0');
             s++;
-            // Dont increment i!
         }
         return i;
     }

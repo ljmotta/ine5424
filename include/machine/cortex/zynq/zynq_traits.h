@@ -8,52 +8,45 @@
 __BEGIN_SYS
 
 class Machine_Common;
-template <> struct Traits<Machine_Common>: public Traits<Build>
+template<> struct Traits<Machine_Common>: public Traits<Build>
 {
+    typedef IF<MODE != LIBRARY, void, bool>::Result Sanity;
+    static const Sanity sane = true;
+
     static const bool debugged = Traits<Build>::debugged;
 };
 
-template <> struct Traits<Machine>: public Traits<Machine_Common>
+template<> struct Traits<Machine>: public Traits<Machine_Common>
 {
-    static const bool cpus_use_local_timer      = false;
-
     static const unsigned int NOT_USED          = 0xffffffff;
-    static const unsigned int CPUS              = Traits<Build>::CPUS;
-
-    // Boot Image
-    static const unsigned int BOOT_LENGTH_MIN   = NOT_USED;
-    static const unsigned int BOOT_LENGTH_MAX   = NOT_USED;
 
     // Physical Memory
-    // Using only DDR memory for data, OCM doesn't support exclusive accesses
-    // needed for atomic operations. The vector table must be placed at
-    // 0x00000000.
-    static const unsigned int MEM_BASE          = 0x00000000;
-    static const unsigned int MEM_TOP           = 0x080fffff; // 129 MB
-    static const unsigned int BOOT_STACK        = 0x080ffffc; // MEM_TOP - sizeof(int)
+    // Using only DDR memory for data, OCM doesn't support exclusive accesses needed for atomic operations. The vector table must be placed at 0x00000000.
+    static const unsigned int RAM_BASE          = 0x00000000;
+    static const unsigned int RAM_TOP           = 0x080fffff;   // 129 MB
+    static const unsigned int MIO_BASE          = 0xe0000000;
+    static const unsigned int MIO_TOP           = 0xf8ffffff;
 
-    // Logical Memory Map
+    // Physical Memory at Boot
     static const unsigned int BOOT              = NOT_USED;
+    static const unsigned int IMAGE             = NOT_USED;
     static const unsigned int SETUP             = NOT_USED;
+
+    // Logical Memory Map (this machine only supports mode LIBRARY, so these are indeed also physical addresses)
+    static const unsigned int APP_LOW           = RAM_BASE;
+    static const unsigned int APP_HIGH          = RAM_TOP;
+    static const unsigned int APP_CODE          = APP_LOW;
+    static const unsigned int APP_DATA          = 0x03100000;   // 192 MB
+
     static const unsigned int INIT              = NOT_USED;
-
-    static const unsigned int APP_LOW           = 0x00000000;
-    static const unsigned int APP_CODE          = 0x00000000;
-    static const unsigned int APP_DATA          = 0x03100000; // 192 MB
-    static const unsigned int APP_HIGH          = 0x06100000; // 384 MB
-
-    static const unsigned int PHY_MEM           = 0x80000000; // 2 GB
-    static const unsigned int IO_BASE           = 0xf0000000; // 4 GB - 256 MB
-    static const unsigned int IO_TOP            = 0xff400000; // 4 GB - 12 MB
-
-    static const unsigned int SYS               = 0x06100000;
-    static const unsigned int SYS_CODE          = 0x06100000;
-    static const unsigned int SYS_DATA          = 0x07100000;
+    static const unsigned int PHY_MEM           = NOT_USED;
+    static const unsigned int IO                = NOT_USED;
+    static const unsigned int SYS               = NOT_USED;
 
     // Default Sizes and Quantities
-    static const unsigned int STACK_SIZE        = 16 * 1024;
-    static const unsigned int HEAP_SIZE         = 16 * 1024 * 1024;
     static const unsigned int MAX_THREADS       = 16;
+    static const unsigned int STACK_SIZE        = 16 * 1024;
+    static const unsigned int HEAP_SIZE         = 4 * 1024 * 1024;
 
     // PLL clocks
     static const unsigned int ARM_PLL_CLOCK     = 1333333333;
@@ -61,19 +54,16 @@ template <> struct Traits<Machine>: public Traits<Machine_Common>
     static const unsigned int DDR_PLL_CLOCK     = 1066666666;
 };
 
-template <> struct Traits<IC>: public Traits<Machine_Common>
+template<> struct Traits<IC>: public Traits<Machine_Common>
 {
     static const bool debugged = hysterically_debugged;
-
-    static const unsigned int IRQS = 96;
-    static const unsigned int INTS = 94;
 };
 
-template <> struct Traits<Timer>: public Traits<Machine_Common>
+template<> struct Traits<Timer>: public Traits<Machine_Common>
 {
     static const bool debugged = hysterically_debugged;
 
-    static const unsigned int UNITS = 4;
+    static const unsigned int UNITS = 1; // ARM Cortex-A9 Global Timer
 
     // Meaningful values for the timer frequency range from 100 to 10000 Hz. The
     // choice must respect the scheduler time-slice, i. e., it must be higher

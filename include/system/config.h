@@ -42,7 +42,7 @@ namespace EPOS {
 #define __USING_SYS             using namespace EPOS::S;
 #define _SYS                    ::EPOS::S
 
-#ifndef __mode_kernel__
+#ifndef __kernel__
 namespace EPOS {
     using namespace S;
     using namespace S::U;
@@ -71,11 +71,6 @@ namespace EPOS {
 //============================================================================
 // CONFIGURATION
 //============================================================================
-#include <system/meta.h>
-#include <system/traits.h>
-#include __APPLICATION_TRAITS_H
-#include <system/types.h>
-
 #define __CPU_H                 __HEADER_ARCH(cpu)
 #define __MMU_H                 __HEADER_ARCH(mmu)
 
@@ -83,7 +78,8 @@ namespace EPOS {
 #define __IC_H                  __HEADER_MACH(ic)
 #define __TIMER_H               __HEADER_MACH(timer)
 
-#ifdef __mmod_legacy_pc__
+#ifdef __legacy_pc__
+#define __pc__
 #define __TSC_H                 __HEADER_ARCH(tsc)
 #define __PMU_H                 __HEADER_ARCH(pmu)
 
@@ -98,7 +94,7 @@ namespace EPOS {
 
 #endif
 
-#ifdef __mmod_lm3s811__
+#ifdef __lm3s811__
 #define __cortex_m__
 #define __cortex_m3__
 #define __TSC_H                 __HEADER_ARCH(tsc)
@@ -108,7 +104,7 @@ namespace EPOS {
 
 #endif
 
-#ifdef __mmod_emote3__
+#ifdef __emote3__
 #define __cortex_m__
 #define __cortex_m3__
 #define __TSC_H                 __HEADER_ARCH(tsc)
@@ -133,20 +129,19 @@ namespace EPOS {
 #define __HYGROMETER_H          __HEADER_TRAN(hygrometer)
 #endif
 
-#ifdef __mmod_zynq__
+#ifdef __zynq__
 #define __cortex_a__
 #define __cortex_a9__
 #define __TSC_H                 __HEADER_ARCH(tsc)
 #define __PMU_H                 __HEADER_ARCH(pmu)
 
 #define __UART_H                __HEADER_MACH(uart)
-#define __NIC_H                 __HEADER_MACH(nic)
 #define __ethernet__
 #define __AES_H                 __HEADER_MACH(aes)
 #define __ipv4__
 #endif
 
-#ifdef __mmod_realview_pbx__
+#ifdef __realview_pbx__
 #define __cortex_a__
 #define __cortex_a9__
 #define __realview_pbx__
@@ -156,7 +151,7 @@ namespace EPOS {
 #define __UART_H                __HEADER_MACH(uart)
 #endif
 
-#ifdef __mmod_raspberry_pi3__
+#ifdef __raspberry_pi3__
 #define __cortex_a__
 #define __cortex_a53__
 #define __TSC_H                 __HEADER_ARCH(tsc)
@@ -165,13 +160,26 @@ namespace EPOS {
 #define __UART_H                __HEADER_MACH(uart)
 #endif
 
-#ifdef __mach_riscv__
+#ifdef __sifive_e__
 #define __riscv__
 #define __TSC_H                 __HEADER_ARCH(tsc)
+#define __PMU_H                 __HEADER_ARCH(pmu)
 
 #define __UART_H                __HEADER_MACH(uart)
 #endif
 
+#ifdef __sifive_u__
+#define __riscv__
+#define __TSC_H                 __HEADER_ARCH(tsc)
+#define __PMU_H                 __HEADER_ARCH(pmu)
+
+#define __UART_H                __HEADER_MACH(uart)
+#endif
+
+#include <system/meta.h>
+#include <system/traits.h>
+#include __APPLICATION_TRAITS_H
+#include <system/types.h>
 
 //============================================================================
 // THINGS EVERBODY NEEDS

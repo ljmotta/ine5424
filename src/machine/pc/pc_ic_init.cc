@@ -25,10 +25,6 @@ void IC::init()
     idt[CPU::EXC_GPF]    = CPU::IDT_Entry(CPU::SEL_SYS_CODE, Log_Addr(&exc_gpf), CPU::SEG_IDT_ENTRY);
     idt[CPU::EXC_NODEV]  = CPU::IDT_Entry(CPU::SEL_SYS_CODE, Log_Addr(&exc_fpu), CPU::SEG_IDT_ENTRY);
 
-    // Install the syscall trap handler
-    if(Traits<Build>::MODE == Traits<Build>::KERNEL)
-        idt[INT_SYSCALL] = CPU::IDT_Entry(CPU::SEL_SYS_CODE, Log_Addr(&CPU::syscalled), CPU::SEG_IDT_ENTRY);
-
     // Set all interrupt handlers to int_not()
     for(unsigned int i = 0; i < INTS; i++)
  	_int_vector[i] = int_not;

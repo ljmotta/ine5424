@@ -25,7 +25,7 @@ void Thread::constructor_prologue(unsigned int stack_size)
 }
 
 
-void Thread::constructor_epilogue(const Log_Addr & entry, unsigned int stack_size)
+void Thread::constructor_epilogue(Log_Addr entry, unsigned int stack_size)
 {
     db<Thread>(TRC) << "Thread(entry=" << entry
                     << ",state=" << _state
@@ -182,7 +182,7 @@ void Thread::exit(int status)
 
         dispatch(prev, _running);
     } else {
-        db<Thread>(WRN) << "The last thread in the system has exited!" << endl;
+        db<Thread>(WRN) << "The last thread has exited!" << endl;
         if(reboot) {
             db<Thread>(WRN) << "Rebooting the machine ..." << endl;
             Machine::reboot();

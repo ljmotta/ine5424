@@ -28,14 +28,14 @@ public:
     : Engine(port, pin, dir, pull, int_edge), _port(port), _pin(pin) {
         if(int_edge != NONE) {
             _gpios[_port][_pin] = this;
-            IC::Interrupt_Id int_id = IC::INT_GPIOA + _port;
-            IC::disable(int_id);
+            IC::Interrupt_Id i = IC::INT_GPIOA + _port;
+            IC::disable(i);
             Engine::int_disable();
-            IC::int_vector(int_id, int_handler);
+            IC::int_vector(i, int_handler, eoi);
             Engine::int_enable(int_edge);
             Engine::clear_interrupts();
             Engine::int_enable();
-            IC::enable(int_id);
+            IC::enable(i);
 
         }
     }

@@ -5,117 +5,66 @@
 
 __BEGIN_SYS
 
-// Class attributes
 unsigned int CPU::_cpu_clock;
 unsigned int CPU::_bus_clock;
 
-// Class methods
 void CPU::Context::save() volatile
 {
-    /*
-    * pc, x1-x31, mstatus
-    */
-    ASM("       sw      x31, -124(sp)           \n"
-        "       la      x31, pc                 \n");
-
-    ASM("       sw      x31, -4(sp)             \n"
-        "       lw      x31, -124(sp)           \n"
-        "       lw      x5, -8(sp)              \n"
-        "       sw      x6, -12(sp)             \n"
-        "       sw      x7, -16(sp)             \n"
-        "       sw      x8, -20(sp)             \n"
-        "       sw      x9, -24(sp)             \n"
-        "       sw      x10, -28(sp)            \n"
-        "       sw      x11, -32(sp)            \n"
-        "       sw      x12, -36(sp)            \n"
-        "       sw      x13, -40(sp)            \n"
-        "       sw      x14, -44(sp)            \n"
-        "       sw      x15, -48(sp)            \n"
-        "       sw      x16, -52(sp)            \n"
-        "       sw      x17, -56(sp)            \n"
-        "       sw      x18, -60(sp)            \n"
-        "       sw      x19, -64(sp)            \n"
-        "       sw      x20, -68(sp)            \n"
-        "       sw      x21, -72(sp)            \n"
-        "       sw      x22, -76(sp)            \n"
-        "       sw      x23, -80(sp)            \n"
-        "       sw      x24, -84(sp)            \n"
-        "       sw      x25, -88(sp)            \n"
-        "       sw      x26, -92(sp)            \n"
-        "       sw      x27, -96(sp)            \n"
-        "       sw      x28, -100(sp)           \n"
-        "       sw      x29, -104(sp)           \n"
-        "       sw      x30, -108(sp)           \n"
-        "       sw      x31, -112(sp)           \n"
-        "       sw      x1, -116(sp)            \n");
-    csrr31();
-
-    ASM("       sw      x31, -120(sp)           \n");
-
-    ASM("       lw      x31, -124(sp)           \n"
-        "       addi    sp, sp, -120            \n"
-        "       sw      sp, 0(%0)               \n" : : "r"(this));
+    ASM("       sd       x3,    0(a0)           \n"     // push garbage for USP
+        "       sd       x1,    8(a0)           \n"     // push RA as PC
+        "       csrr     x3,  mstatus           \n"
+        "       sd       x3,   16(sp)           \n"     // push ST
+        "       sd       x1,   24(sp)           \n"     // push RA
+        "       sd       x5,   32(sp)           \n"     // push x5-x31
+        "       sd       x6,   40(sp)           \n"
+        "       sd       x7,   48(sp)           \n"
+        "       sd       x8,   56(sp)           \n"
+        "       sd       x9,   64(sp)           \n"
+        "       sd      x10,   72(sp)           \n"
+        "       sd      x11,   80(sp)           \n"
+        "       sd      x12,   88(sp)           \n"
+        "       sd      x13,   96(sp)           \n"
+        "       sd      x14,  104(sp)           \n"
+        "       sd      x15,  112(sp)           \n"
+        "       sd      x16,  120(sp)           \n"
+        "       sd      x17,  128(sp)           \n"
+        "       sd      x18,  136(sp)           \n"
+        "       sd      x19,  144(sp)           \n"
+        "       sd      x20,  152(sp)           \n"
+        "       sd      x21,  160(sp)           \n"
+        "       sd      x22,  168(sp)           \n"
+        "       sd      x23,  176(sp)           \n"
+        "       sd      x24,  184(sp)           \n"
+        "       sd      x25,  192(sp)           \n"
+        "       sd      x26,  200(sp)           \n"
+        "       sd      x27,  208(sp)           \n"
+        "       sd      x28,  216(sp)           \n"
+        "       sd      x29,  224(sp)           \n"
+        "       sd      x30,  232(sp)           \n"
+        "       sd      x31,  240(sp)           \n"
+        "       ret                             \n");
 }
 
+// Context load does not verify if interrupts were previously enabled by the Context's constructor
+// We are setting mstatus to MPP | MPIE, therefore, interrupts will be enabled only after mret
 void CPU::Context::load() const volatile
 {
-    System::_heap->free(reinterpret_cast<void *>(Memory_Map::SYS_STACK), Traits<System>::STACK_SIZE);
-    ASM("       mv      sp, %0                  \n"
-        "       addi    sp, sp, 120             \n"
-        "       lw      x31, -120(sp)           \n" : : "r"(this));
-    csrw31();
-    ASM("       lw      x5, -8(sp)              \n"
-        "       lw      x6, -12(sp)             \n"
-        "       lw      x7, -16(sp)             \n"
-        "       lw      x8, -20(sp)             \n"
-        "       lw      x9, -24(sp)             \n"
-        "       lw      x10, -28(sp)            \n"
-        "       lw      x11, -32(sp)            \n"
-        "       lw      x12, -36(sp)            \n"
-        "       lw      x13, -40(sp)            \n"
-        "       lw      x14, -44(sp)            \n"
-        "       lw      x15, -48(sp)            \n"
-        "       lw      x16, -52(sp)            \n"
-        "       lw      x17, -56(sp)            \n"
-        "       lw      x18, -60(sp)            \n"
-        "       lw      x19, -64(sp)            \n"
-        "       lw      x20, -68(sp)            \n"
-        "       lw      x21, -72(sp)            \n"
-        "       lw      x22, -76(sp)            \n"
-        "       lw      x23, -80(sp)            \n"
-        "       lw      x24, -84(sp)            \n"
-        "       lw      x25, -88(sp)            \n"
-        "       lw      x26, -92(sp)            \n"
-        "       lw      x27, -96(sp)            \n"
-        "       lw      x28, -100(sp)           \n"
-        "       lw      x29, -104(sp)           \n"
-        "       lw      x30, -108(sp)           \n"
-        "       lw      x31, -112(sp)           \n"
-        "       lw      x1, -116(sp)            \n"
-        "       lw      x31, -4(sp)             \n"
-        "       jalr    x0, (x31)               \n");
+    sp(Log_Addr(this));
+    pop();
+    iret();
 }
 
-void CPU::switch_context(Context ** o, Context * n)
-{
-    ASM("c_switch:                              \n"
-        "       j   c_switch                    \n");
-    // ASM("       sub     sp, #4                  \n"     // reserve room for PC
-    //     "       push    {r12}                   \n"     // save tmp register
-    //     "       adr     r12, .ret               \n");   // calculate return address
-    // ASM("       str     r12, [sp,#4]            \n"     // save calculate PC
-    //     "       pop     {r12}                   \n"     // restore tmp register
-    //     "       push    {r0-r12, lr}            \n");   // save all registers
-    // mrs12();                                            // move flags to tmp register
-    // ASM("       push    {r12}                   \n"     // save flags
-    //     "       str     sp, [r0]                \n"     // update Context * volatile * o
-    //     "       mov     sp, r1                  \n"     // get Context * volatile n into SP
-    //     "       isb                             \n"     // serialize the pipeline so SP gets updated before the pop
-    //     "       pop     {r12}                   \n");   // pop flags into tmp register
-    // msr12();                                            // restore flags
-    // ASM("       pop     {r0-r12, lr}            \n");   // restore all registers
-    // ASM("       pop     {pc}                    \n"     // restore PC
-    //     ".ret:  bx      lr                      \n");   // return
+void CPU::switch_context(Context ** o, Context * n)     // "o" is in a0 and "n" is in a1
+{   
+    // Push the context into the stack and update "o"
+    Context::push();
+    ASM("sd sp, 0(a0)");   // update Context * volatile * o, which is in a0
+
+    // Set the stack pointer to "n" and pop the context from the stack
+    ASM("mv sp, a1");   // "n" is in a1
+    Context::pop();
+    iret();
 }
 
 __END_SYS
+

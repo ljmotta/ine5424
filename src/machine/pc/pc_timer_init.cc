@@ -11,8 +11,7 @@ void Timer::init()
 
     CPU::int_disable();
 
-    if(!Traits<System>::multicore || (CPU::id() == 0))
-        IC::int_vector(IC::INT_SYS_TIMER, int_handler);
+    IC::int_vector(IC::INT_SYS_TIMER, int_handler);
 
     disable();
     reset();

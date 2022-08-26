@@ -2,9 +2,9 @@
 
 
 #include <architecture/tsc.h>
+#include <machine/machine.h>
 #include <machine/timer.h>
-
-#if defined(__cortex_a__)
+#include <system/memory_map.h>
 
 __BEGIN_SYS
 
@@ -12,7 +12,16 @@ void TSC::init()
 {
     db<Init, TSC>(TRC) << "TSC::init()" << endl;
 
+#ifdef __cortex_m__
+    // Last timer is TSC's
+    SysCtrl * scr = reinterpret_cast<SysCtrl *>(Memory_Map::SCR_BASE);
+    GPTM * gptm = reinterpret_cast<GPTM *>(Memory_Map::TIMER0_BASE + 0x1000 * (Traits<Timer>::UNITS - 1));
 
+    scr->clock_timer(Traits<Timer>::UNITS - 1);
+    gptm->config(0xffffffff, true, (Traits<Build>::MODEL == Traits<Build>::LM3S811) ? false : true);
+
+    // time-out interrupt will be registered later at IC::init(), because IC hasn't been initialized yet
+#else
     if(CPU::id() == 0) {
         // Disable counting before programming
         reg(GTCLR) = 0;
@@ -24,30 +33,7 @@ void TSC::init()
         // Re-enable counting
         reg(GTCLR) = 1;
     }
-}
-
-__END_SYS
-
-#elif defined(__cortex_m__)
-
-#include __HEADER_MMOD(sysctrl)
-#include __HEADER_MMOD(memory_map)
-
-__BEGIN_SYS
-
-void TSC::init()
-{
-    db<Init, TSC>(TRC) << "TSC::init()" << endl;
-
-    SysCtrl * scr = reinterpret_cast<SysCtrl *>(Memory_Map::SCR_BASE);
-    GPTM * gptm = reinterpret_cast<GPTM *>(Memory_Map::TIMER0_BASE + 0x1000 * (Traits<Timer>::UNITS - 1));
-
-    scr->clock_timer(Traits<Timer>::UNITS - 1);
-    gptm->config(0xffffffff, true, (Traits<Build>::MODEL == Traits<Build>::LM3S811) ? false : true);
-
-    // time-out interrupt will be registered later at IC::init(), because IC hasn't been initialized yet
-}
-
-__END_SYS
-
 #endif
+}
+
+__END_SYS

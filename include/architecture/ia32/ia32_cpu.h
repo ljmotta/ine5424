@@ -4,6 +4,7 @@
 #define __ia32_h
 
 #include <architecture/cpu.h>
+#include <system/memory_map.h>
 
 __BEGIN_SYS
 
@@ -12,18 +13,15 @@ class CPU: private CPU_Common
     friend class Init_System;
     friend class Machine;
 
-private:
-    static const bool smp = Traits<System>::multicore;
-
 public:
     // Native Data Types
     using CPU_Common::Reg8;
     using CPU_Common::Reg16;
     using CPU_Common::Reg32;
     using CPU_Common::Reg64;
-    using Reg = CPU_Common::Reg32;
-    using Log_Addr = CPU_Common::Log_Addr<Reg>;
-    using Phy_Addr = CPU_Common::Phy_Addr<Reg>;
+    using CPU_Common::Reg;
+    using CPU_Common::Log_Addr;
+    using CPU_Common::Phy_Addr;
 
     // Flags
     typedef Reg32 Flags;
@@ -239,7 +237,7 @@ public:
         Reg32 ecx;
         Reg32 edx;
         Reg32 ebx;
-        Reg32 esp;
+        Reg32 esp3;
         Reg32 ebp;
         Reg32 esi;
         Reg32 edi;
@@ -247,7 +245,7 @@ public:
         Reg16 zero5;
         Reg16 cs;
         Reg16 zero6;
-        Reg16 ss;
+        Reg16 ss3;
         Reg16 zero7;
         Reg16 ds;
         Reg16 zero8;
@@ -264,29 +262,36 @@ public:
     // CPU Context
     class Context
     {
+        friend class CPU;       // for Context::push() and Context::pop()
+        friend class IC;        // for Context::push() and Context::pop()
+
     public:
-        Context(const Log_Addr & usp, const Log_Addr & entry): _esp3(usp), _eip(entry), _cs(((Traits<Build>::MODE == Traits<Build>::KERNEL) && usp)? SEL_APP_CODE : SEL_SYS_CODE), _eflags(FLAG_DEFAULTS) {
+        static const unsigned long PAGE_SIZE = 4096; // this does not depend on the MMU configuration; it's a fixed valued
+        static const unsigned long CROSS_LEVEL_CONTEX_SIZE = 13 * sizeof(long); // 8 registers + SS + USP + FLAGS + CS + IP
+
+    public:
+        Context() {}
+        Context(Log_Addr usp, Log_Addr entry): _eip(entry), _cs(SEL_SYS_CODE), _eflags(FLAG_DEFAULTS) {
             if(Traits<Build>::hysterically_debugged || Traits<Thread>::trace_idle) {
-                _edi = 1; _esi = 2; _ebp = 3; _ebx = 4; _edx = 5; _ecx = 6; _eax = 7;
+                _edi = 1; _esi = 2; _ebp = 3; _esp = 4; _ebx = 5; _edx = 6; _ecx = 7; _eax = 8;
             }
         }
 
-        void save() volatile;
-        void load() const volatile;
+        void save() volatile __attribute__ ((naked));
+        void load() const volatile __attribute__ ((naked));
 
         friend Debug & operator<<(Debug & db, const Context & c) {
             db << hex
-               << "{eflags=" << c._eflags
-               << ",eax=" << c._eax
-               << ",ebx=" << c._ebx
-               << ",ecx=" << c._ecx
-               << ",edx=" << c._edx
-               << ",esi=" << c._esi
-               << ",edi=" << c._edi
-               << ",ebp=" << reinterpret_cast<void *>(c._ebp)
-               << ",esp=" << &c
-               << ",eip=" << reinterpret_cast<void *>(c._eip)
-               << ",esp3="<< c._esp3
+               << "{flags=" << c._eflags
+               << ",ax=" << c._eax
+               << ",bx=" << c._ebx
+               << ",cx=" << c._ecx
+               << ",dx=" << c._edx
+               << ",si=" << c._esi
+               << ",di=" << c._edi
+               << ",bp=" << reinterpret_cast<void *>(c._ebp)
+               << ",sp=" << &c
+               << ",ip=" << reinterpret_cast<void *>(c._eip)
                << ",cs="  << c._cs
                << ",ccs=" << cs()
                << ",cds=" << ds()
@@ -294,13 +299,17 @@ public:
                << ",cfs=" << fs()
                << ",cgs=" << gs()
                << ",css=" << ss()
-               << ",cr3=" << reinterpret_cast<void *>(pdp())
+               << ",cr3=" << reinterpret_cast<void *>(cr3())
                << "}"     << dec;
             return db;
         }
 
     private:
-        Reg32 _esp3; // only used in multitasking environments
+        static void pop(bool interrupt = false);
+        static void push(bool interrupt = false);
+        static void first_dispatch() __attribute__ ((naked));
+
+    private:
         Reg32 _edi;
         Reg32 _esi;
         Reg32 _ebp;
@@ -327,25 +336,19 @@ public:
 public:
     CPU() {}
 
-    static Flags flags() { return eflags(); }
-    static void flags(const Flags flags) { eflags(flags); }
+    static Log_Addr pc() { return eip(); }
 
-    static Reg32 sp() { return esp(); }
-    static void sp(const Reg32 sp) { esp(sp); }
+    static Log_Addr sp() { return esp(); }
+    static void sp(Log_Addr sp) { esp(sp); }
 
-    static Reg32 fr() { return eax(); }
-    static void fr(const Reg32 sp) { eax(sp); }
+    static Reg fr() { return eax(); }
+    static void fr(Reg r) { eax(r); }
 
-    static Log_Addr ip() { return eip(); }
-
-    static Reg32 pdp() { return cr3() ; }
-    static void pdp(const Reg32 pdp) { cr3(pdp); }
-
-    static unsigned int id();
-    static unsigned int cores() { return smp ? _cores : 1; }
+    static volatile unsigned int id();
+    static unsigned int cores() { return 1; }
 
     static Hertz clock() { return _cpu_current_clock; }
-    static void clock(const Hertz & frequency) {
+    static void clock(Hertz frequency) {
         Reg64 clock = frequency;
         unsigned int dc;
         if(clock <= (_cpu_clock * 1875 / 10000)) {
@@ -376,10 +379,8 @@ public:
 
     static void fpu_save() {} // TODO
     static void fpu_restore() {} // TODO
-    static void switch_context(Context * volatile * o, Context * volatile n);
 
-    static void syscall(void * message);
-    static void syscalled();
+    static void switch_context(Context * volatile * o, Context * volatile n);
 
     template<typename T>
     static T tsl(volatile T & lock) {
@@ -410,6 +411,13 @@ public:
 
     static void smp_barrier(unsigned long cores = cores()) { CPU_Common::smp_barrier<&finc>(cores, id()); }
 
+    // MMU operations
+    static Reg  pd() { return cr3(); }
+    static void pd(Reg r) { cr3(r); }
+
+    static void flush_tlb() { ASM("movl %cr3, %eax"); ASM("movl %eax, %cr3"); }
+    static void flush_tlb(Reg32 r) { ASM("invlpg %0" : : "m"(r)); }
+
     static Reg64 htole64(Reg64 v) { return v; }
     static Reg32 htole32(Reg32 v) { return v; }
     static Reg16 htole16(Reg16 v) { return v; }
@@ -430,56 +438,44 @@ public:
     static Reg16 ntohs(Reg16 v) { return htons(v); }
 
     template<typename ... Tn>
-    static Context * init_stack(const Log_Addr & usp, Log_Addr sp, void (* exit)(), int (* entry)(Tn ...), Tn ... an) {
-        // IA32 first decrements the stack pointer and then writes into the stack
+    static Context * init_stack(Log_Addr usp, Log_Addr sp, void (* exit)(), int (* entry)(Tn ...), Tn ... an) {
+        // Multitasking scenarios use this method with USP != 0, what causes two contexts to be pushed into the thread's stack.
+        // The context pushed first (and popped last) is the "regular" one, with entry pointing to the thread's entry point.
+        // The second context (popped first) is a dummy context that has _int_leave as entry point. It is a system-level context (CPL=0),
+        // so switch_context doesn't need to care for cross-level IRETs.
+
         sp -= SIZEOF<Tn ... >::Result;
         init_stack_helper(sp, an ...);
         sp -= sizeof(int *);
         *static_cast<int *>(sp) = Log_Addr(exit);
-        if(usp) {
-            sp -= sizeof(int *);
-            *static_cast<int *>(sp) = Log_Addr(SEL_APP_DATA);
-            sp -= sizeof(int *);
-            *static_cast<int *>(sp) = usp;
-        }
         sp -= sizeof(Context);
-        return new (sp) Context(usp, entry);
+        return new (sp) Context(0, entry);
     }
+
     template<typename ... Tn>
-    static Log_Addr init_user_stack(Log_Addr sp, void (* exit)(), Tn ... an) {
-        // IA32 first decrements the stack pointer and then writes into the stack
-        sp -= SIZEOF<Tn ... >::Result;
-        init_stack_helper(sp, an ...);
-        if(exit) {
-            sp -= sizeof(int *);
-            *static_cast<int *>(sp) = Log_Addr(exit);
+    static Log_Addr init_user_stack(Log_Addr usp, void (* exit)(), Tn ... an) {
+        usp -= SIZEOF<Tn ... >::Result;
+        init_stack_helper(usp, an ...);
+        if(exit) { // only MAIN has exit = 0, because it returns via CRT0
+            usp -= sizeof(int *);
+            *static_cast<int *>(usp) = Log_Addr(exit);
         }
-        return sp;
+        return usp;
     }
 
 public:
-    // IA32 specific methods
-    static Flags eflags() {
-        Reg32 value; ASM("pushfl");
-        ASM("popl %0" : "=r"(value) :); return value;
-    }
-    static void eflags(const Flags value) {
-         ASM("pushl %0" : : "r"(value)); ASM("popfl");
-    }
+    // IA32 specifics
+    static Flags flags() { Reg32 r; ASM("pushfl");              ASM("popl %0" : "=r"(r) :); return r; }
+    static void flags(Flags r) {    ASM("pushl %0" : : "r"(r)); ASM("popfl"); }
 
-    static Reg32 esp() {
-        Reg32 value; ASM("movl %%esp,%0" : "=r"(value) :); return value;
-    }
-    static void esp(const Reg32 value) {
-        ASM("movl %0, %%esp" : : "r"(value));
-    }
+    static Reg32 esp() { Reg32 r; ASM("movl %%esp,%0"  : "=r"(r) :); return r; }
+    static void esp(Reg32 r) {    ASM("movl %0, %%esp" : : "X"(r)); }
 
-    static Reg32 eax() {
-        Reg32 value; ASM("movl %%eax,%0" : "=r"(value) :); return value;
-    }
-    static void eax(const Reg32 value) {
-        ASM("movl %0, %%eax" : : "r"(value));
-    }
+    static Reg32 eax() { Reg32 r; ASM("movl %%eax,%0"  : "=r"(r) :); return r; }
+    static void eax(Reg32 r) {    ASM("movl %0, %%eax" : : "X"(r)); }
+
+    static Reg32 ecx() { Reg32 r; ASM("movl %%ecx,%0"  : "=r"(r) :); return r; }
+    static void ecx(Reg32 r) {    ASM("movl %0, %%ecx" : : "X"(r)); }
 
     static Log_Addr eip() {
         Log_Addr value;
@@ -496,30 +492,13 @@ public:
         ASM("cpuid" : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx) : "0"(*eax), "2"(*ecx));
     }
 
-    static Reg32 cr0() {
-        Reg32 value; ASM("movl %%cr0, %0" : "=r"(value) :); return value;
-    }
-    static void cr0(const Reg32 value) {
-        ASM("movl %0, %%cr0" : : "r"(value));
-    }
-
-    static Reg32 cr2() {
-        Reg32 value; ASM("movl %%cr2, %0" : "=r"(value) :); return value;
-    }
-
-    static Reg32 cr3() {
-        Reg32 value; ASM("movl %%cr3, %0" : "=r"(value) :); return value;
-    }
-    static void cr3(const Reg32 value) {
-        ASM("movl %0, %%cr3" : : "r"(value));
-    }
-
-    static Reg32 cr4() {
-        Reg32 value; ASM("movl %%cr4, %0" : "=r"(value) :); return value;
-    }
-    static void cr4(const Reg32 value) {
-        ASM("movl %0, %%cr4" : : "r"(value));
-    }
+    static Reg32 cr0() { Reg32 r; ASM("movl %%cr0, %0" : "=r"(r) :); return r; }
+    static void cr0(Reg32 r) {    ASM("movl %0, %%cr0" : : "r"(r)); }
+    static Reg32 cr2() { Reg32 r; ASM("movl %%cr2, %0" : "=r"(r) :); return r; }
+    static Reg32 cr3() { Reg32 r; ASM("movl %%cr3, %0" : "=r"(r) :); return r; }
+    static void cr3(Reg32 r) {    ASM("movl %0, %%cr3" : : "r"(r)); }
+    static Reg32 cr4() { Reg32 r; ASM("movl %%cr4, %0" : "=r"(r) :); return r; }
+    static void cr4(Reg32 r) {    ASM("movl %0, %%cr4" : : "r"(r)); }
 
     static void gdtr(Reg16 * limit, Reg32 * base) {
         volatile Reg8 aux[6];
@@ -559,87 +538,33 @@ public:
         ASM("lidt %0" : : "m" (aux[0]));
     }
 
-    static Reg16 cs() {
-        Reg16 value; ASM("mov %%cs,%0" : "=r"(value) :); return value;
-    }
-    static Reg16 ds() {
-        Reg16 value; ASM("mov %%ds,%0" : "=r"(value) :); return value;
-    }
-    static Reg16 es() {
-        Reg16 value; ASM("mov %%es,%0" : "=r"(value) :); return value;
-    }
-    static Reg16 ss() {
-        Reg16 value; ASM("mov %%ss,%0" : "=r"(value) :); return value;
-    }
-    static Reg16 fs() {
-        Reg16 value; ASM("mov %%fs,%0" : "=r"(value) :); return value;
-    }
-    static Reg16 gs() {
-        Reg16 value; ASM("mov %%gs,%0" : "=r"(value) :); return value;
-    }
+    static Reg16 cs() { Reg16 r; ASM("mov %%cs,%0" : "=r"(r) :); return r; }
+    static Reg16 ds() { Reg16 r; ASM("mov %%ds,%0" : "=r"(r) :); return r; }
+    static Reg16 es() { Reg16 r; ASM("mov %%es,%0" : "=r"(r) :); return r; }
+    static Reg16 ss() { Reg16 r; ASM("mov %%ss,%0" : "=r"(r) :); return r; }
+    static Reg16 fs() { Reg16 r; ASM("mov %%fs,%0" : "=r"(r) :); return r; }
+    static Reg16 gs() { Reg16 r; ASM("mov %%gs,%0" : "=r"(r) :); return r; }
 
-    static Reg16 tr() {
-        Reg16 tr;
-        ASM("str %0" : "=r"(tr) :);
-        return tr;
-    }
-    static void tr(Reg16 tr) {
-        ASM("ltr %0" : : "r"(tr));
-    }
+    static Reg16 tr() { Reg16 r; ASM("str %0" : "=r"(r) :); return r; }
+    static void tr(Reg16 r) {    ASM("ltr %0" : : "r"(r)); }
 
-    static void bts(Log_Addr addr, const int bit) {
-        ASM("bts %1,%0" : "=m"(addr) : "r"(bit));
-    }
-    static void btr(Log_Addr addr, const int bit) {
-        ASM("btr %1,%0" : "=m"(addr) : "r"(bit));
-    }
+    static void bts(Log_Addr addr, const int bit) { ASM("bts %1,%0" : "=m"(addr) : "r"(bit)); }
+    static void btr(Log_Addr addr, const int bit) { ASM("btr %1,%0" : "=m"(addr) : "r"(bit)); }
 
-    static int bsf(Log_Addr addr) {
-        register unsigned int pos;
-        ASM("bsf %1,%0" : "=a"(pos) : "m"(addr) : );
-        return pos;
-    }
-    static int bsr(Log_Addr addr) {
-        register int pos = -1;
-        ASM("bsr %1, %0" : "=a"(pos) : "m"(addr) : );
-        return pos;
-    }
+    static int bsf(Log_Addr addr) { unsigned int pos;      ASM("bsf %1,%0"  : "=a"(pos) : "m"(addr) : ); return pos; }
+    static int bsr(Log_Addr addr) { register int pos = -1; ASM("bsr %1, %0" : "=a"(pos) : "m"(addr) : ); return pos; }
 
-    static Reg64 rdmsr(Reg32 msr) {
-        Reg64 v;
-        ASM("rdmsr" : "=A"(v) : "c"(msr));
-        return v;
-    }
-    static void wrmsr(Reg32 msr, Reg64 v) {
-        ASM("wrmsr" : : "c"(msr), "A"(v));
-    }
+    static Reg64 rdmsr(Reg32 msr) { Reg64 r; ASM("rdmsr" : "=A"(r) : "c"(msr)); return r; }
+    static void wrmsr(Reg32 msr, Reg64 r) {  ASM("wrmsr" : : "c"(msr), "A"(r)); }
 
-    static Reg8 in8(const IO_Port & port) {
-        Reg8 value;
-        ASM("inb %1,%0" : "=a"(value) : "d"(port));
-        return value;
-    }
-    static Reg16 in16(const IO_Port & port) {
-        Reg16 value;
-        ASM("inw %1,%0" : "=a"(value) : "d"(port));
-        return value;
-    }
-    static Reg32 in32(const IO_Port & port) {
-        Reg32 value;
-        ASM("inl %1,%0" : "=a"(value) : "d"(port));
-        return value;
-    }
-    static void out8(const IO_Port & port, const Reg8 & value) {
-        ASM("outb %1,%0" : : "d"(port), "a"(value));
-    }
-    static void out16(const IO_Port & port, const Reg16 & value) {
-        ASM("outw %1,%0" : : "d"(port), "a"(value));
-    }
-    static void out32(const IO_Port & port, const Reg32 & value) {
-        ASM("outl %1,%0" : : "d"(port), "a"(value));
-    }
+    static Reg8 in8(IO_Port p) { Reg8 r;    ASM("inb %1,%0" : "=a"(r) : "d"(p)); return r; }
+    static Reg16 in16(IO_Port p) { Reg16 r; ASM("inw %1,%0" : "=a"(r) : "d"(p)); return r; }
+    static Reg32 in32(IO_Port p) { Reg32 r; ASM("inl %1,%0" : "=a"(r) : "d"(p)); return r; }
+    static void out8(IO_Port p, Reg8 r) {   ASM("outb %1,%0" : : "d"(p), "a"(r)); }
+    static void out16(IO_Port p, Reg16 r) { ASM("outw %1,%0" : : "d"(p), "a"(r)); }
+    static void out32(IO_Port p, Reg32 r) { ASM("outl %1,%0" : : "d"(p), "a"(r)); }
 
-    static void switch_tss(const Reg32 & selector) {
+    static void switch_tss(Reg32 selector) {
         struct {
             Reg32 offset;
             Reg32 selector;
@@ -671,15 +596,32 @@ private:
     }
     static void init_stack_helper(Log_Addr sp) {}
 
-    static void smp_barrier_init(unsigned int cores);
+    static void smp_barrier_init(unsigned int cores) {}
     static void init();
 
 private:
-    static volatile unsigned int _cores;
     static Hertz _cpu_clock;
     static Hertz _cpu_current_clock;
     static Hertz _bus_clock;
 };
+
+inline void CPU::Context::pop(bool interrupt)
+{
+    ASM("       popa                    # pop registers                         \n"
+        "       iret                    # pop [SS, USP], FLAGS, CS, and IP,     \n"
+        "                               #   and return 			        \n");
+}
+
+inline void CPU::Context::push(bool interrupt)
+{
+if(!interrupt)
+    ASM("       pop     %esi            # recover return address from the stack \n"
+        "       pushf                   # create a stack structure for IRET     \n"
+        "       push    %cs             #   with FLAGS, CS                      \n"
+        "       push    %esi            #   and IP                              \n");
+
+    ASM("       pusha                   # push registers                        \n");
+}
 
 inline CPU::Reg64 htole64(CPU::Reg64 v) { return CPU::htole64(v); }
 inline CPU::Reg32 htole32(CPU::Reg32 v) { return CPU::htole32(v); }

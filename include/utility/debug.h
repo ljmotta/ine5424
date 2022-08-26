@@ -5,6 +5,10 @@
 #ifndef __debug_h
 #define __debug_h
 
+__BEGIN_SYS
+extern OStream kerr;
+__END_SYS
+
 __BEGIN_UTIL
 
 class Debug

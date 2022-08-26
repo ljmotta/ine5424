@@ -18,13 +18,13 @@
 typedef unsigned short Elf32_Half;
 typedef unsigned short Elf64_Half;
 typedef unsigned long Elf32_Word;
-typedef unsigned long Elf64_Word;
+typedef unsigned int Elf64_Word;
 typedef unsigned long long Elf32_Xword;
 typedef unsigned long long Elf64_Xword;
 typedef unsigned long Elf32_Addr;
-typedef unsigned long long Elf64_Addr;
+typedef unsigned long Elf64_Addr;
 typedef unsigned long Elf32_Off;
-typedef unsigned long long Elf64_Off;
+typedef unsigned long Elf64_Off;
 
 struct Elf32_Ehdr
 {

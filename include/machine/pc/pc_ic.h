@@ -150,7 +150,7 @@ class APIC
 private:
     typedef CPU::Reg8 Reg8;
     typedef CPU::Reg16 Reg16;
-    typedef CPU::Reg32 Reg32;
+    typedef CPU::Reg Reg;
     typedef CPU::Reg64 Reg64;
     typedef CPU::Log_Addr Log_Addr;
 
@@ -320,27 +320,27 @@ public:
     }
 
     static void enable() {
-        Reg32 v = read(SVR);
+        Reg v = read(SVR);
         v |= SVR_APIC_ENABLED;
         write(SVR, v);
     }
     static void enable(int i) { enable(); }
 
     static void disable() {
-        Reg32 v  = read(SVR);
+        Reg v  = read(SVR);
         v &= ~SVR_APIC_ENABLED;
         write(SVR, v);
     }
     static void disable(int i) { disable(); }
 
-    static Reg32 read(unsigned int reg) {
-        return *static_cast<volatile Reg32 *>(_base + reg);
+    static Reg read(unsigned int reg) {
+        return *static_cast<volatile Reg *>(_base + reg);
     }
-    static void write(unsigned int reg, Reg32 v) {
-        *static_cast<volatile Reg32 *>(_base + reg) = v;
+    static void write(unsigned int reg, Reg v) {
+        *static_cast<volatile Reg *>(_base + reg) = v;
     }
 
-    static int id() {
+    static volatile unsigned int id() {
         return (read(ID) & ID_MASK) >> ID_SHIFT;
     }
     static int version() {
@@ -356,12 +356,7 @@ public:
         // subject to memory remappings. We also cannot be sure about
         // global constructors here
         remap(addr);
-        if(Traits<System>::multicore) {
-            clear();
-            enable();
-            connect();
-        } else
-            disable();
+        disable();
     }
 
     static int eoi(unsigned int i) { // End of interrupt
@@ -369,8 +364,8 @@ public:
         return true;
     }
 
-    static void config_timer(Reg32 count, bool interrupt, bool periodic) {
-        Reg32 v = INT_TIMER;
+    static void config_timer(Reg count, bool interrupt, bool periodic) {
+        Reg v = INT_TIMER;
         v |= (interrupt) ? 0 : TIMER_MASKED;
         v |= (periodic) ? TIMER_PERIODIC : 0;
         write(TIMER_INITIAL, count / 16);
@@ -386,7 +381,7 @@ public:
         write(LVT_TIMER, read(LVT_TIMER) | TIMER_MASKED);
     }
 
-    static Reg32 read_timer() {
+    static Reg read_timer() {
         return read(TIMER_CURRENT);
     }
 
@@ -396,8 +391,8 @@ public:
         enable();
     }
 
-    static void config_pmu(const Reg32 & i) {
-        Reg32 v = i;
+    static void config_pmu(const Reg & i) {
+        Reg v = i;
         write(LVT_PERF, v);
     }
 
@@ -410,7 +405,7 @@ public:
 
 private:
     static int maxlvt() {
-        Reg32 v = read(VERSION);
+        Reg v = read(VERSION);
         // 82489DXs do not report # of LVT entries
         return (v & 0xf) ? (v >> 16) & 0xff : 2;
     }
@@ -465,15 +460,15 @@ private:
 };
 
 // IC uses i8259A on single-processor machines and the APIC timer on MPs
-class IC: private IC_Common, private IF<Traits<System>::multicore, APIC, i8259A>::Result
+class IC: private IC_Common, private i8259A
 {
     friend class Machine;
     friend class Thread;
 
 private:
-    typedef IF<Traits<System>::multicore, APIC, i8259A>::Result Engine;
+    typedef i8259A Engine;
 
-    typedef CPU::Reg32 Reg32;
+    typedef CPU::Reg Reg;
     typedef CPU::Log_Addr Log_Addr;
 
 public:
@@ -485,8 +480,6 @@ public:
         INT_SYS_TIMER   = Engine::INT_TIMER,
         INT_KEYBOARD    = Engine::INT_KEYBOARD,
         INT_LAST_HARD   = Engine::INT_LAST_HARD,
-        INT_RESCHEDULER = Engine::INT_IPI,
-        INT_SYSCALL     = Engine::INT_FIRST_SOFT,
         INT_PMU,
         LAST_INT
     };
@@ -504,7 +497,6 @@ public:
     static void int_vector(Interrupt_Id i, const Interrupt_Handler & h) {
         db<IC>(TRC) << "IC::int_vector(int=" << i << ",h=" << reinterpret_cast<void *>(h) <<")" << endl;
         assert(i < INTS);
-        // WARNING: in static member function 'static void EPOS::S::FPGA::init()': error: array subscript is above array bounds
         _int_vector[i] = h;
     }
 
@@ -534,23 +526,26 @@ public:
     using Engine::irq2int;
 
 private:
-    static void dispatch(unsigned int i);
+    static void dispatch(unsigned int i) __attribute__ ((thiscall));
 
     // Logical handlers
     static void int_not(Interrupt_Id i);
 
     // Physical handlers
-    static void entry();
-    static void exc_not(Reg32 eip, Reg32 cs, Reg32 eflags, Reg32 error);
-    static void exc_pf (Reg32 eip, Reg32 cs, Reg32 eflags, Reg32 error);
-    static void exc_gpf(Reg32 eip, Reg32 cs, Reg32 eflags, Reg32 error);
-    static void exc_fpu(Reg32 eip, Reg32 cs, Reg32 eflags, Reg32 error);
+    static void entry() __attribute__ ((naked));
+    static void exc_not(Reg eip, Reg cs, Reg eflags, Reg error) __attribute__ ((naked));
+    static void exc_pf (Reg eip, Reg cs, Reg eflags, Reg error) __attribute__ ((naked));
+    static void exc_gpf(Reg eip, Reg cs, Reg eflags, Reg error) __attribute__ ((naked));
+    static void exc_fpu(Reg eip, Reg cs, Reg eflags, Reg error) __attribute__ ((naked));
 
     static void init();
 
 private:
     static Interrupt_Handler _int_vector[INTS];
 };
+
+// Core id in IA32 might be handled by the APIC
+inline volatile unsigned int CPU::id() { return 0; }
 
 __END_SYS
 

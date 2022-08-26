@@ -12,45 +12,37 @@ template<> struct Traits<Machine_Common>: public Traits<Build> {};
 
 template<> struct Traits<Machine>: public Traits<Machine_Common>
 {
-    static const bool cpus_use_local_timer      = false;
-
     static const unsigned int NOT_USED          = 0xffffffff;
-    static const unsigned int CPUS              = Traits<Build>::CPUS;
-
-    // Boot Image
-    static const unsigned int BOOT_LENGTH_MIN   = 512;
-    static const unsigned int BOOT_LENGTH_MAX   = 512;
-    static const unsigned int BOOT_IMAGE_ADDR   = 0x00008000;
-    static const unsigned int RAMDISK           = 0x0fa28000; // MEMDISK-dependent
-    static const unsigned int RAMDISK_SIZE      = 0x003c0000;
 
     // Physical Memory
-    static const unsigned int MEM_BASE          = 0x00000000;
-    static const unsigned int MEM_TOP           = 0x10000000; // 256 MB (MAX for 32-bit is 0x70000000 / 1792 MB)
-    static const unsigned int BOOT_STACK        = NOT_USED;   // not used (defined by BOOT and by SETUP)
+    static const unsigned int RAM_BASE          = 0x00000000;
+    static const unsigned int RAM_TOP           = 0x40000000; 	// 1 GB (max 1792 MB)
+    static const unsigned int MIO_BASE          = NOT_USED;	// defined by SETUP during PCI initialization (max 244 MB)
+    static const unsigned int MIO_TOP           = NOT_USED;	// defined by SETUP
+
+    // Physical Memory at Boot
+    static const unsigned int BOOT              = 0x00007c00;
+    static const unsigned int IMAGE             = 0x00008000;
+    static const unsigned int SETUP             = 0x00100000;   // 1 MB
+    static const unsigned int RAMDISK           = 0x0fa28000;   // MEMDISK-dependent
+    static const unsigned int RAMDISK_SIZE      = 0x003c0000;
 
     // Logical Memory Map
-    static const unsigned int BOOT              = 0x00007c00;
-    static const unsigned int SETUP             = 0x00100000; // 1 MB
-    static const unsigned int INIT              = 0x00200000; // 2 MB
+    static const unsigned int APP_LOW           = 0x80000000;   // 2 GB
+    static const unsigned int APP_HIGH          = 0xff7fffff;   // SYS - 1
 
-    static const unsigned int APP_LOW           = 0x00000000;
-    static const unsigned int APP_CODE          = 0x00000000;
-    static const unsigned int APP_DATA          = 0x00400000; // 4 MB
-    static const unsigned int APP_HIGH          = 0x0fffffff; // 256 MB
+    static const unsigned int APP_CODE          = APP_LOW;      // APP_CODE < APP_DATA must hold
+    static const unsigned int APP_DATA          = APP_CODE + 4 * 1024 * 1024;
 
-    static const unsigned int PHY_MEM           = 0x80000000; // 2 GB
-    static const unsigned int IO_BASE           = 0xf0000000; // 4 GB - 256 MB
-    static const unsigned int IO_TOP            = 0xff400000; // 4 GB - 12 MB
-
-    static const unsigned int SYS               = IO_TOP;     // 4 GB - 12 MB
-    static const unsigned int SYS_CODE          = 0xff700000;
-    static const unsigned int SYS_DATA          = 0xff740000;
+    static const unsigned int INIT              = 0x00200000;   // 2 MB (only used during boot)
+    static const unsigned int PHY_MEM           = 0x00000000; 	// (max 1792 MB)
+    static const unsigned int IO                = 0x70000000; 	// 2 GB - 256 MB  (max 244 MB)
+    static const unsigned int SYS               = 0xff800000;   // 4 GB - 8 MB
 
     // Default Sizes and Quantities
-    static const unsigned int STACK_SIZE        = 16 * 1024;
-    static const unsigned int HEAP_SIZE         = 16 * 1024 * 1024;
     static const unsigned int MAX_THREADS       = 16;
+    static const unsigned int STACK_SIZE        = 64 * 1024;
+    static const unsigned int HEAP_SIZE         = 4 * 1024 * 1024;
 };
 
 template<> struct Traits<PCI>: public Traits<Machine_Common>
@@ -134,7 +126,7 @@ template<> struct Traits<Keyboard>: public Traits<Machine_Common>
 
 template<> struct Traits<Scratchpad>: public Traits<Machine_Common>
 {
-    static const bool enabled = false;
+    static const bool enabled = true;
     static const unsigned int ADDRESS = 0xa0000; // VGA Graphic mode frame buffer
     static const unsigned int SIZE = 96 * 1024;
 };

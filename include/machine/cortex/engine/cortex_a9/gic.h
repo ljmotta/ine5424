@@ -19,8 +19,7 @@ protected:
 
 public:
     // IRQs
-    static const unsigned int IRQS = Traits<IC>::IRQS;
-    static const unsigned int HARD_INT = 0;
+    static const unsigned int IRQS = 92;
     typedef Interrupt_Id IRQ;
     enum {
         IRQ_SOFTWARE0           = 0,
@@ -160,8 +159,8 @@ public:
         gic_dist(ICDISER2) = ~0;
     }
 
-    void enable(Interrupt_Id id) {
-        gic_dist(ICDISER0 + (id / 32) * 4) = 1 << (id % 32);
+    void enable(Interrupt_Id i) {
+        gic_dist(ICDISER0 + (i / 32) * 4) = 1 << (i % 32);
     }
 
     void disable() {
@@ -170,21 +169,18 @@ public:
         gic_dist(ICDICER1) = ~0;
     }
 
-    void disable(Interrupt_Id id) {
-        gic_dist(ICDICER0 + (id / 32) * 4) = 1 << (id % 32);
+    void disable(Interrupt_Id i) {
+        gic_dist(ICDICER0 + (i / 32) * 4) = 1 << (i % 32);
     }
 
-    int irq2int(int i) { return i; }
-    int int2irq(int i) { return i; }
-
-    void send_sgi(unsigned int cpu, Interrupt_Id id) {
+    void send_sgi(unsigned int cpu, Interrupt_Id i) {
         Reg32 target_list = 1 << cpu;
         Reg32 filter_list = 0;
-        gic_dist(ICDSGIR) = ((filter_list << 24) | (target_list << 16) | (id & 0x0f));
+        gic_dist(ICDSGIR) = ((filter_list << 24) | (target_list << 16) | (i & 0x0f));
     }
 
-    void send_sgi(Interrupt_Id id, Reg32 target_list, Reg32 filter_list) {
-        Reg32 aux = id & 0x0f;
+    void send_sgi(Interrupt_Id i, Reg32 target_list, Reg32 filter_list) {
+        Reg32 aux = i & 0x0f;
         target_list = target_list & 0x0f;
         filter_list = filter_list & 0x0f;
         aux = aux | (target_list << 16);
@@ -193,19 +189,19 @@ public:
     }
 
     void smp_init(unsigned int cores) {
-        Reg32 interrupt_id = 0x0; // reset id
+        Interrupt_Id i = 0; // reset cores
 
         Reg32 target_list = 0x0;
         if(cores <= CPU::cores())
-            for(unsigned int i = 0; i < cores; i++)
-                target_list |= 1 << (i);
+            for(unsigned int core = 0; core < cores; core++)
+                target_list |= 1 << (core);
         else
-            for(unsigned int i = 0; i < CPU::cores(); i++)
-                target_list |= 1 << (i);
+            for(unsigned int core = 0; core < CPU::cores(); core++)
+                target_list |= 1 << (core);
 
-        Reg32 filter_list = 0x01; // except the current
+        Reg32 filter_list = 1; // except the current core
 
-        send_sgi(interrupt_id, target_list, filter_list);
+        send_sgi(i, target_list, filter_list);
     }
 
     void init() {
@@ -231,8 +227,7 @@ public:
     Interrupt_Id int_id() {
         Reg32 icciar = gic_cpu(ICCIAR) & INT_ID_MASK;
 
-        // For every read of a valid interrupt id from the ICCIAR, the ISR must
-        // perform a matching write to the ICCEOIR
+        // For every read of a valid interrupt from the ICCIAR, the ISR must perform a matching write to the ICCEOIR
         gic_cpu(ICCEOIR) = icciar;
         return icciar;
     }

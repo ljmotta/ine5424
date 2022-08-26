@@ -10,7 +10,7 @@
 
 __BEGIN_SYS
 
-class Raspberry_Pi3: public Machine_Common
+class Raspberry_Pi3: private Machine_Common
 {
     friend Machine; // for pre_init() and init()
 
@@ -21,7 +21,8 @@ protected:
 public:
     Raspberry_Pi3() {}
 
-    static void delay(const Microsecond & time);
+    using Machine_Common::delay;
+    using Machine_Common::clear_bss;
 
     static void reboot();
     static void poweroff() { reboot(); }
@@ -29,12 +30,10 @@ public:
     static const UUID & uuid() { return System::info()->bm.uuid; }
 
 public:
-    static void smp_barrier_init(unsigned int n_cpus) {
-        _cores = n_cpus;
-    }
+    static void smp_barrier_init(unsigned int n_cpus) { _cores = n_cpus; }
 
 private:
-    static void pre_init();
+    static void pre_init() {}
     static void init() {}
 
 private:

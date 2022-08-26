@@ -39,7 +39,7 @@ public:
 
     T * volatile chosen() {
     	// If called before insert(), chosen will dereference a null pointer!
-    	// For threads, we assume this won't happen (see Init_First).
+    	// For threads, we assume this won't happen (see Init_End).
     	// But if you are unsure about your new use of the scheduler,
     	// please, pay the price of the extra "if" bellow.
         // Hysterically debugging also causes chosen() to be called before insert()

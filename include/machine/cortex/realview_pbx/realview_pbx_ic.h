@@ -13,43 +13,39 @@ class IC_Engine: public IC_Common
 {
 public:
     // Interrupts
-    static const unsigned int INTS = Traits<IC>::INTS;
-    enum {
-        INT_SYS_TIMER   = GIC::IRQ_PRIVATE_TIMER,
-        INT_USER_TIMER0 = GIC::IRQ_GLOBAL_TIMER,
-        INT_USER_TIMER1 = 0,
-        INT_USER_TIMER2 = 0,
-        INT_USER_TIMER3 = 0,
-        INT_GPIOA       = GIC::IRQ_GPIO,
-        INT_GPIOB       = GIC::IRQ_GPIO,
-        INT_GPIOC       = GIC::IRQ_GPIO,
-        INT_GPIOD       = GIC::IRQ_GPIO,
-        INT_NIC0_RX     = GIC::IRQ_ETHERNET0,
-        INT_NIC0_TX     = GIC::IRQ_ETHERNET0,
-        INT_NIC0_ERR    = GIC::IRQ_ETHERNET0,
-        INT_NIC0_TIMER  = 0,
-        INT_USB0        = GIC::IRQ_USB0,
-        INT_FIRST_HARD  = GIC::HARD_INT,
-        INT_LAST_HARD   = GIC::IRQ_PARITY,
-        INT_RESCHEDULER = GIC::IRQ_SOFTWARE0,
-        LAST_INT        = INT_RESCHEDULER
-    };
+    static const unsigned int EXCS = CPU::EXCEPTIONS;
+    static const unsigned int IRQS = GIC::IRQS;
+    static const unsigned int INTS = EXCS + IRQS;
 
-    // Exceptions
-    // Exceptions are hard configured by SETUP, since they run in different mode with a different context layout.
-    static const unsigned int EXC_INT = 0;
+    enum {
+        INT_SYS_TIMER   = EXCS + GIC::IRQ_PRIVATE_TIMER,
+        INT_TIMER0      = EXCS + GIC::IRQ_GLOBAL_TIMER,
+        INT_TIMER1      = UNSUPPORTED_INTERRUPT,
+        INT_TIMER2      = UNSUPPORTED_INTERRUPT,
+        INT_TIMER3      = UNSUPPORTED_INTERRUPT,
+        INT_TSC_TIMER   = INT_TIMER0, // TSC must be disabled to use User_Timer
+        INT_USR_TIMER   = INT_TIMER0,
+        INT_GPIOA       = EXCS + GIC::IRQ_GPIO,
+        INT_GPIOB       = EXCS + GIC::IRQ_GPIO,
+        INT_GPIOC       = EXCS + GIC::IRQ_GPIO,
+        INT_GPIOD       = EXCS + GIC::IRQ_GPIO,
+        INT_NIC0_RX     = EXCS + GIC::IRQ_ETHERNET0,
+        INT_NIC0_TX     = EXCS + GIC::IRQ_ETHERNET0,
+        INT_NIC0_ERR    = EXCS + GIC::IRQ_ETHERNET0,
+        INT_USB0        = EXCS + GIC::IRQ_USB0
+    };
 
 public:
     static void enable() { gic_distributor()->enable(); }
-    static void enable(Interrupt_Id id)  { gic_distributor()->enable(id); }
+    static void enable(Interrupt_Id i)  { if((i >= EXCS) && (i <= INTS)) gic_distributor()->enable(int2irq(i)); }
     static void disable() { gic_distributor()->disable(); }
-    static void disable(Interrupt_Id id) { gic_distributor()->disable(); }
+    static void disable(Interrupt_Id i) { if((i >= EXCS) && (i <= INTS)) gic_distributor()->disable(int2irq(i)); }
 
-    static Interrupt_Id int_id() { return gic_cpu()->int_id(); }
-    static Interrupt_Id irq2int(Interrupt_Id id) { return gic_distributor()->irq2int(id); }
-    static Interrupt_Id int2irq(Interrupt_Id irq) { return gic_distributor()->int2irq(irq); }
+    static Interrupt_Id int_id() { return irq2int(gic_cpu()->int_id()); }
+    static Interrupt_Id irq2int(Interrupt_Id i) { return i + EXCS; }
+    static Interrupt_Id int2irq(Interrupt_Id i) { return i - EXCS; }
 
-    static void ipi(unsigned int cpu, Interrupt_Id id) { gic_distributor()->send_sgi(cpu, id); }
+    static void ipi(unsigned int cpu, Interrupt_Id i) { gic_distributor()->send_sgi(cpu, int2irq(i)); }
 
     static void init() {
         gic_distributor()->init();

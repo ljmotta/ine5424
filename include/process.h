@@ -14,7 +14,7 @@ __BEGIN_SYS
 
 class Thread
 {
-    friend class Init_First;            // context->load()
+    friend class Init_End;              // context->load()
     friend class Init_System;           // for init() on CPU != 0
     friend class Synchronizer_Common;   // for lock() and sleep()
     friend class Alarm;                 // for lock()
@@ -84,7 +84,7 @@ public:
 
 protected:
     void constructor_prologue(unsigned int stack_size);
-    void constructor_epilogue(const Log_Addr & entry, unsigned int stack_size);
+    void constructor_epilogue(Log_Addr entry, unsigned int stack_size);
 
     static Thread * volatile running() { return _running; }
 

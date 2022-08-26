@@ -20,9 +20,7 @@ private:
 
 public:
     // IRQs
-    static const unsigned int IRQS = Traits<IC>::IRQS;
-    static const unsigned int EXC_INT = 0;
-    static const unsigned int HARD_INT = 16;
+    static const unsigned int IRQS = 48;
     typedef Interrupt_Id IRQ;
     enum {
         IRQ_GPIOA       = 0,
@@ -56,8 +54,7 @@ public:
         IRQ_GPT3B       = 36,
         IRQ_USB         = 44, // Using alternate interrupt mapping
         IRQ_UDMASW      = 46,
-        IRQ_UDMAERR     = 47,
-        IRQ_LAST        = IRQ_UDMAERR
+        IRQ_UDMAERR     = 47
     };
 
     // Registers' offsets in System Control Space
@@ -81,20 +78,18 @@ public:
     };
 
 public:
+    Interrupt_Id int_id() { return CPU::psr() & 0x3f; } // only works in handler mode (inside IC::entry())
+
     void enable() {
         nvic(IRQ_ENABLE0) = ~0;
         if(IRQS > 32) nvic(IRQ_ENABLE1) = ~0;
         if(IRQS > 64) nvic(IRQ_ENABLE2) = ~0;
     }
 
-    void enable(Interrupt_Id id) {
-        if(id >= HARD_INT) {
-            IRQ i = int2irq(id);
-            assert(i < IRQS);
-            if(i < 32) nvic(IRQ_ENABLE0) = 1 << i;
-            else if((IRQS > 32) && (i < 64)) nvic(IRQ_ENABLE1) = 1 << (i - 32);
-            else if(IRQS > 64) nvic(IRQ_ENABLE2) = 1 << (i - 64);
-        }
+    void enable(IRQ i) {
+        if(i < 32) nvic(IRQ_ENABLE0) = 1 << i;
+        else if((IRQS > 32) && (i < 64)) nvic(IRQ_ENABLE1) = 1 << (i - 32);
+        else if(IRQS > 64) nvic(IRQ_ENABLE2) = 1 << (i - 64);
     }
 
     void disable() {
@@ -103,24 +98,14 @@ public:
         if(IRQS > 64) nvic(IRQ_DISABLE2) = ~0;
     }
 
-    void disable(Interrupt_Id id) {
-        if(id >= HARD_INT) {
-            IRQ i = int2irq(id);
-            assert(i < IRQS);
-            if(i < 32) nvic(IRQ_DISABLE0) = 1 << i;
-            else if((IRQS > 32) && (i < 64)) nvic(IRQ_DISABLE1) = 1 << (i - 32);
-            else if(IRQS > 64) nvic(IRQ_DISABLE2) = 1 << (i - 64);
-            unpend(i);
-        }
+    void disable(IRQ i) {
+        if(i < 32) nvic(IRQ_DISABLE0) = 1 << i;
+        else if((IRQS > 32) && (i < 64)) nvic(IRQ_DISABLE1) = 1 << (i - 32);
+        else if(IRQS > 64) nvic(IRQ_DISABLE2) = 1 << (i - 64);
+        unpend(i);
     }
 
-    int irq2int(int i) const { return i + HARD_INT; }
-    int int2irq(int i) const { return i - HARD_INT; }
-
     void init() {};
-
-    // Only works in handler mode (inside IC::entry())
-    Interrupt_Id int_id() { return CPU::flags() & 0x3f; }
 
 protected:
     void unpend() {
@@ -129,8 +114,7 @@ protected:
         nvic(IRQ_UNPEND2) = ~0;
     }
 
-    void unpend(const IRQ & i) {
-        assert(i < IRQS);
+    void unpend(IRQ i) {
         if(i < 32) nvic(IRQ_UNPEND0) = 1 << i;
         else if((IRQS > 32) && (i < 64)) nvic(IRQ_UNPEND1) = 1 << (i - 32);
         else if(IRQS > 64) nvic(IRQ_UNPEND2) = 1 << (i - 64);

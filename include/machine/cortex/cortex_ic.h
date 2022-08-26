@@ -17,17 +17,20 @@ private:
     typedef IC_Engine Engine;
     typedef CPU::Reg32 Reg32;
 
-    static const unsigned int INTS = Engine::INTS;
-
 public:
+    using Engine::INTS;
+    using Engine::EXCS;
+    using Engine::IRQS;
+
     using Engine::Interrupt_Id;
     using Engine::Interrupt_Handler;
 
     using Engine::INT_SYS_TIMER;
-    using Engine::INT_USER_TIMER0;
-    using Engine::INT_USER_TIMER1;
-    using Engine::INT_USER_TIMER2;
-    using Engine::INT_USER_TIMER3;
+    using Engine::INT_USR_TIMER;
+    using Engine::INT_TIMER0;
+    using Engine::INT_TIMER1;
+    using Engine::INT_TIMER2;
+    using Engine::INT_TIMER3;
     using Engine::INT_GPIOA;
     using Engine::INT_GPIOB;
     using Engine::INT_GPIOC;
@@ -37,8 +40,6 @@ public:
     using Engine::INT_NIC0_TX;
     using Engine::INT_NIC0_ERR;
     using Engine::INT_NIC0_TIMER;
-    using Engine::INT_RESCHEDULER;
-    using Engine::LAST_INT;
 
 public:
     IC() {}
@@ -52,6 +53,13 @@ public:
         db<IC>(TRC) << "IC::int_vector(int=" << i << ",h=" << reinterpret_cast<void *>(h) <<")" << endl;
         assert(i < INTS);
         _int_vector[i] = h;
+    }
+
+    static void int_vector(Interrupt_Id i, const Interrupt_Handler & ih, const Interrupt_Handler & eh) {
+        db<IC>(TRC) << "IC::int_vector(int=" << i << ",ih=" << reinterpret_cast<void *>(ih) << ",ih=" << reinterpret_cast<void *>(eh) << ")" << endl;
+        assert(i < INTS);
+        _int_vector[i] = ih;
+        _eoi_vector[i] = eh;
     }
 
     static void enable() {
@@ -84,23 +92,36 @@ public:
         Engine::ipi(cpu, i);
     }
 
-    void undefined_instruction();
-    void software_interrupt();
-    void prefetch_abort();
-    void data_abort();
-    void reserved();
-    void fiq();
-
 private:
-    static void dispatch(unsigned int i);
-    static void eoi(unsigned int i);
+#ifdef __cortex_m__
+    static void dispatch(Interrupt_Id i);
+#else
+    static void dispatch();
+#endif
+
+    // ARMv7 exception handlers are physical, ARMv8 are logical
 
     // Logical handlers
+    static void int_bad(Interrupt_Id i) { int_bad(); };
+    static void undefined_instruction(Interrupt_Id i) { undefined_instruction(); };
+    static void software_interrupt(Interrupt_Id i) { software_interrupt(); };
+    static void prefetch_abort(Interrupt_Id i) { prefetch_abort(); };
+    static void data_abort(Interrupt_Id i) { data_abort(); };
     static void int_not(Interrupt_Id i);
-    static void hard_fault(Interrupt_Id i);
+    // int_entry is always physical
+    static void fiq(Interrupt_Id i) { fiq(); };
 
-    // Physical handler
-    static void entry();
+    // Physical handlers
+    static void int_bad() __attribute__ ((naked));
+    static void undefined_instruction() __attribute__ ((naked));
+    static void software_interrupt() __attribute__ ((naked));
+    static void prefetch_abort() __attribute__ ((naked));
+    static void data_abort() __attribute__ ((naked));
+    // int_not is always logical
+    static void entry() __attribute__ ((naked));
+    static void fiq() __attribute__ ((naked));
+
+    static void kill();
 
     static void init();
 

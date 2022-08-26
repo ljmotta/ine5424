@@ -1,10 +1,9 @@
-# EPOS RISC-V 32 Architecture Makefile
+# EPOS RISC-V 64 Architecture Makefile
 
 include ../../../makedefs
 
 OBJS := $(subst .cc,.o,$(shell find *.cc | grep -v _init | grep -v _test))
-CRTS := $(subst .S,.o,$(shell find *.S | grep crt))
-CRTS += $(subst .c,.o,$(shell find *.c | grep crt))
+CRTS := $(subst .S,.o,$(shell find *.S | grep crt)) $(ARCH)_crtbegin.o $(ARCH)_crtend.o 
 CRTSI := $(subst .S,.s,$(shell find *.S | grep crt))
 INITS := $(subst .cc,.o,$(shell find *.cc | grep _init))
 
@@ -20,6 +19,12 @@ crts:		$(CRTS)
 $(LIBARCH):	$(LIBARCH)($(OBJS))
 
 $(LIBINIT):	$(LIBINIT)($(INITS))
+
+$(ARCH)_crtbegin.o: ../common/crtbegin.c
+		$(CC) $(CCFLAGS) $< -o $@
+
+$(ARCH)_crtend.o: ../common/crtend.c
+		$(CC) $(CCFLAGS) $< -o $@
 
 clean:
 		$(CLEAN) *.o *.s *_test

@@ -13,43 +13,42 @@ class IC_Engine: public IC_Common
 {
 public:
     // Interrupts
-    static const unsigned int INTS = Traits<IC>::INTS;
-    static const unsigned int HARD_INT = NVIC::HARD_INT;
-    static const unsigned int SOFT_INT = HARD_INT + NVIC::IRQS;
+    static const unsigned int EXCS = CPU::EXCEPTIONS;
+    static const unsigned int IRQS = NVIC::IRQS;
+    static const unsigned int INTS = EXCS + IRQS;
+
     enum {
-        INT_HARD_FAULT  = ARMv7_M::EXC_HARD,
-        INT_SYS_TIMER   = ARMv7_M::EXC_SYSTICK,
-        INT_USER_TIMER0 = HARD_INT + NVIC::IRQ_GPT0A,
-        INT_USER_TIMER1 = HARD_INT + NVIC::IRQ_GPT1A,
-        INT_USER_TIMER2 = HARD_INT + NVIC::IRQ_GPT2A,
-        INT_USER_TIMER3 = HARD_INT + NVIC::IRQ_GPT3A,
-        INT_GPIOA       = HARD_INT + NVIC::IRQ_GPIOA,
-        INT_GPIOB       = HARD_INT + NVIC::IRQ_GPIOB,
-        INT_GPIOC       = HARD_INT + NVIC::IRQ_GPIOC,
-        INT_GPIOD       = HARD_INT + NVIC::IRQ_GPIOD,
-        INT_NIC0_RX     = HARD_INT + NVIC::IRQ_RFTXRX,
-        INT_NIC0_TX     = HARD_INT + NVIC::IRQ_RFTXRX,
-        INT_NIC0_ERR    = HARD_INT + NVIC::IRQ_RFERR,
-        INT_NIC0_TIMER  = HARD_INT + NVIC::IRQ_MACTIMER,
-        INT_USB0        = HARD_INT + NVIC::IRQ_USB,
-        INT_FIRST_HARD  = HARD_INT,
-        INT_LAST_HARD   = HARD_INT + NVIC::IRQS,
-        INT_RESCHEDULER = SOFT_INT,
-        LAST_INT        = INT_RESCHEDULER
+        INT_HARD_FAULT  = CPU::EXC_HARD,
+        INT_SYS_TIMER   = CPU::EXC_SYSTICK,
+
+        INT_TIMER0      = EXCS + NVIC::IRQ_GPT0A,
+        INT_TIMER1      = EXCS + NVIC::IRQ_GPT1A,
+        INT_TIMER2      = EXCS + NVIC::IRQ_GPT2A,
+        INT_TIMER3      = EXCS + NVIC::IRQ_GPT3A,
+        INT_USR_TIMER   = INT_TIMER0,
+        INT_TSC_TIMER   = INT_TIMER3,
+        INT_GPIOA       = EXCS + NVIC::IRQ_GPIOA,
+        INT_GPIOB       = EXCS + NVIC::IRQ_GPIOB,
+        INT_GPIOC       = EXCS + NVIC::IRQ_GPIOC,
+        INT_GPIOD       = EXCS + NVIC::IRQ_GPIOD,
+        INT_NIC0_RX     = EXCS + NVIC::IRQ_RFTXRX,
+        INT_NIC0_TX     = EXCS + NVIC::IRQ_RFTXRX,
+        INT_NIC0_ERR    = EXCS + NVIC::IRQ_RFERR,
+        INT_NIC0_TIMER  = EXCS + NVIC::IRQ_MACTIMER,
+        INT_USB0        = EXCS + NVIC::IRQ_USB
     };
 
 public:
     static void enable() { nvic()->enable(); }
-    static void enable(Interrupt_Id id)  { nvic()->enable(id); }
+    static void enable(Interrupt_Id i)  { if((i >= EXCS) && (i <= INTS)) nvic()->enable(int2irq(i)); }
     static void disable() { nvic()->disable(); }
-    static void disable(Interrupt_Id id) { nvic()->disable(); }
+    static void disable(Interrupt_Id i) { if((i >= EXCS) && (i <= INTS)) nvic()->disable(int2irq(i)); }
 
-    // Only works in handler mode (inside IC::entry())
-    static Interrupt_Id int_id() { return CPU::flags() & 0x3f; }
-    static Interrupt_Id irq2int(Interrupt_Id id) { return nvic()->irq2int(id); }
-    static Interrupt_Id int2irq(Interrupt_Id irq) { return nvic()->int2irq(irq); }
+    static Interrupt_Id int_id() { return irq2int(nvic()->int_id()); }  // only works in handler mode (inside IC::entry())
+    static Interrupt_Id irq2int(Interrupt_Id i) { return i + EXCS; }
+    static Interrupt_Id int2irq(Interrupt_Id i) { return i - EXCS; }
 
-    static void ipi(unsigned int cpu, Interrupt_Id id) {} // NVIC is always single-core
+    static void ipi(unsigned int cpu, Interrupt_Id i) {} // Cortex-M3 is always single-core
 
     static void init() { nvic()->init(); };
 

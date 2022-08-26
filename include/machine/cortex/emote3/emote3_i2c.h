@@ -231,6 +231,7 @@ private:
         timeout = 1000;
         while(ready_to_get() && timeout--);
         if(i2c(I2C_STAT) & (I2C_STAT_ERROR | I2C_STAT_ADRACK | I2C_STAT_DATACK)) {
+            *data = 0;
             return false;
         } else {
             *data = i2c(I2C_DR);

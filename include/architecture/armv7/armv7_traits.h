@@ -8,10 +8,9 @@ __BEGIN_SYS
 
 template<> struct Traits<CPU>: public Traits<Build>
 {
-    enum {LITTLE, BIG};
     static const unsigned int ENDIANESS         = LITTLE;
     static const unsigned int WORD_SIZE         = 32;
-    static const unsigned int CLOCK             = Traits<Build>::MODEL == Traits<Build>::LM3S811 ? 50000000 : Traits<Build>::MODEL == Traits<Build>::Zynq ? 666666687 : 32000000;
+    static const unsigned int CLOCK             = (MODEL == LM3S811) ? 50000000 : (MODEL == Zynq) ? 666666687 : (MODEL == Realview_PBX) ? 100000000 : 1400000000L;
     static const bool unaligned_memory_access   = false;
 };
 

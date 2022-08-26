@@ -1,7 +1,7 @@
 // EPOS RISC-V 32 Time-Stamp Counter Mediator Declarations
 
-#ifndef __riscv32_tsc_h
-#define __riscv32_tsc_h
+#ifndef __rv32_tsc_h
+#define __rv32_tsc_h
 
 #include <architecture/cpu.h>
 #include <architecture/tsc.h>
@@ -15,7 +15,7 @@ class TSC: private TSC_Common
     friend class IC;
 
 private:
-    static const unsigned int CLOCK = Traits<Machine>::TIMER_CLOCK;
+    static const unsigned int CLOCK = Traits<Timer>::CLOCK;
     static const unsigned int ACCURACY = 40000; // this is actually unknown at the moment
 
     // Registers offsets from CLINT_BASE

@@ -2,8 +2,6 @@
 
 #include <machine.h>
 
-#ifdef __mmod_zynq__
-
 __BEGIN_SYS
 
 void Zynq::init()
@@ -13,5 +11,3 @@ void Zynq::init()
 }
 
 __END_SYS
-
-#endif

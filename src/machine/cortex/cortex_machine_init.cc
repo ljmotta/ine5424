@@ -4,7 +4,6 @@
 
 __BEGIN_SYS
 
-// TODO: refactor Realview_PBX::pre_init() to move Cortex-A commonalities here
 void Machine::pre_init(System_Info * si)
 {
     Engine::pre_init();
@@ -14,15 +13,8 @@ void Machine::pre_init(System_Info * si)
 
     db<Init, Machine>(TRC) << "Machine::pre_init()" << endl;
 
-    if(CPU::id() == 0) {
-        if(Traits<IC>::enabled) {
-            IC::init();
-
-            // Wake up remaining CPUs
-            if(Traits<System>::multicore)
-                smp_barrier_init(Traits<Build>::CPUS);
-        }
-    }
+    if(Traits<IC>::enabled)
+        IC::init();
 }
 
 void Machine::init()

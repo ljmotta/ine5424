@@ -80,29 +80,42 @@ LMACH		= $(LMACHNAME)_$(MMOD)
 LSYS		= $(LSYSNAME)_$(MMOD)
 LINIT		= $(LINITNAME)_$(MMOD)
 LUTIL		= $(LUTILNAME)_$(MMOD)
+ifeq ($(SMOD), library)
+BOOT_ROM	= 
+else
+BOOT_ROM	= -device loader,file=$(APPLICATION).img,addr=$(IMAGE_ADDR),force-raw=on 
+endif
 
 # Boot Memory Map
-MEM_SIZE                = $(shell $(BIN)/eposcfg MEM_SIZE_KB 2> /dev/null)
-BOOT_ADDR               = $(shell $(BIN)/eposcfg BOOT 2> /dev/null)
-SETUP_ADDR              = $(shell $(BIN)/eposcfg SETUP 2> /dev/null)
-INIT_ADDR               = $(shell $(BIN)/eposcfg INIT 2> /dev/null)
-SYS_CODE_ADDR           = $(shell $(BIN)/eposcfg SYS_CODE 2> /dev/null)
-SYS_DATA_ADDR           = $(shell $(BIN)/eposcfg SYS_DATA 2> /dev/null)
-UUID                    = $(shell cat /proc/sys/kernel/random/uuid | sed 's/-//g')
+MEM_SIZE	= $(shell $(BIN)/eposcfg MEM_SIZE_KB 2> /dev/null)
+BOOT_ADDR	= $(shell $(BIN)/eposcfg BOOT 2> /dev/null)
+IMAGE_ADDR	= $(shell $(BIN)/eposcfg IMAGE 2> /dev/null)
+SETUP_ADDR	= $(shell $(BIN)/eposcfg SETUP 2> /dev/null)
+INIT_ADDR	= $(shell $(BIN)/eposcfg INIT 2> /dev/null)
+SYS_CODE_ADDR	= $(shell $(BIN)/eposcfg SYS_CODE 2> /dev/null)
+SYS_DATA_ADDR	= $(shell $(BIN)/eposcfg SYS_DATA 2> /dev/null)
+UUID		= $(shell cat /proc/sys/kernel/random/uuid | sed 's/-//g')
 
 # Compiler prefixes
 ia32_COMP_PREFIX	:= /usr/bin/x86_64-linux-gnu-
 armv7_COMP_PREFIX	:= /usr/bin/arm-none-eabi-
-armv8_COMP_PREFIX	:= /usr/bin/arm-none-eabi-
+armv8_COMP_PREFIX	:= /usr/bin/aarch64-linux-gnu-
 rv32_COMP_PREFIX	:= /usr/local/rv32/bin/riscv32-unknown-linux-gnu-
 rv64_COMP_PREFIX	:= /usr/bin/riscv64-linux-gnu-
 COMP_PREFIX		= $($(ARCH)_COMP_PREFIX)
 
+# Architecture specifics
+ARCH_ENDIANESS		= $(ARCH_$(call GETTK,ENDIANESS,$(ARCH_TRAITS)))
+ARCH_WORD_SIZE		= $(call GETTK,WORD_SIZE,$(ARCH_TRAITS))
+ARCH_CLOCK		= $(call GETTK,CLOCK,$(ARCH_TRAITS))
+CC_M_FLAG		= -m$(ARCH_WORD_SIZE)
+#QEMU_DEBUG      = -D $(addsuffix .log,$(APPLICATION)) -d int,mmu
+
 # Machine specifics
-pc_CC_FLAGS		:= -m32 -Wa,--32
+pc_CC_FLAGS		= $(CC_M_FLAG) -Wa,--32
 pc_AS_FLAGS		:= --32
 pc_LD_FLAGS		:= -m elf_i386
-pc_EMULATOR		= qemu-system-i386 -smp $(CPUS) -m $(MEM_SIZE)k -nographic -no-reboot -drive format=raw,index=0,if=floppy,read-only,file=
+pc_EMULATOR		= qemu-system-i386 $(QEMU_DEBUG) -smp $(CPUS) -m $(MEM_SIZE)k -nographic -no-reboot -drive format=raw,index=0,if=floppy,read-only,file=
 pc_DEBUGGER		:= gdb
 pc_FLASHER		:=
 pc_MAGIC		:= --nmagic
@@ -114,46 +127,51 @@ ifeq ($(MMOD),realview_pbx)
 cortex_CC_FLAGS		:= -mcpu=cortex-a9
 cortex_AS_FLAGS		:= -mcpu=cortex-a9
 cortex_LD_FLAGS		:=
-cortex_EMULATOR		= qemu-system-arm -machine realview-pbx-a9 -smp $(CPUS) -m $(MEM_SIZE)k -serial null -serial mon:stdio -nographic -no-reboot -kernel 
-cortex_DEBUGGER		:= arm-none-eabi-gdb
+cortex_EMULATOR		= qemu-system-arm $(QEMU_DEBUG) -machine realview-pbx-a9 -smp $(CPUS) -m $(MEM_SIZE)k -serial null -serial mon:stdio -nographic -no-reboot $(BOOT_ROM) -kernel 
+cortex_DEBUGGER		:= gdb
 cortex_FLASHER		= $(TLS)/eposflash/eposflash-$(MMOD) -d /dev/ttyACM0 -f
 cortex_MAGIC		:= --omagic
 cortex_CODE_NAME	:= .init
-cortex_DATA_NAME	:=
+cortex_DATA_NAME	:= .data
 cortex_IMG_SUFFIX	:= .bin
 endif
 
 ifeq ($(MMOD),zynq)
 cortex_CC_FLAGS		:= -mcpu=cortex-a9
 cortex_AS_FLAGS		:= -mcpu=cortex-a9
-cortex_EMULATOR		= qemu-system-arm -machine xilinx-zynq-a9  -smp $(CPUS) -m $(MEM_SIZE)k -serial null -serial mon:stdio -nographic -no-reboot -kernel 
-cortex_DEBUGGER		:= arm-none-eabi-gdb
+cortex_EMULATOR		= qemu-system-arm $(QEMU_DEBUG) -machine xilinx-zynq-a9  -smp $(CPUS) -m $(MEM_SIZE)k -serial null -serial mon:stdio -nographic -no-reboot $(BOOT_ROM) -kernel 
+cortex_DEBUGGER		:= gdb
 cortex_FLASHER		= $(TLS)/eposflash/eposflash-$(MMOD) -d /dev/ttyACM0 -f
 cortex_MAGIC		:= --omagic
 cortex_CODE_NAME	:= .init
-cortex_DATA_NAME	:=
+cortex_DATA_NAME	:= .data
 cortex_IMG_SUFFIX	:= .bin
 endif
 
 ifeq ($(MMOD),raspberry_pi3)
+ifeq ($(ARCH),armv7)
 cortex_CC_FLAGS		:= -mcpu=cortex-a53 -mfloat-abi=hard -mfpu=vfp
+cortex_EMULATOR		= qemu-system-aarch64 $(QEMU_DEBUG) -M raspi2 -cpu cortex-a53 -smp 4 -m 1G -serial null -serial mon:stdio -nographic -no-reboot $(BOOT_ROM) -kernel 
+else
+cortex_CC_FLAGS		:= -mcpu=cortex-a53 -mabi=lp64 -Wno-attributes
+cortex_EMULATOR		= qemu-system-aarch64 $(QEMU_DEBUG) -M raspi3 -cpu cortex-a53 -smp 4 -m 1G -serial null -serial mon:stdio -nographic -no-reboot $(BOOT_ROM) -kernel 
+endif
 cortex_AS_FLAGS		:= -mcpu=cortex-a53
 cortex_LD_FLAGS		:=
-cortex_EMULATOR		= qemu-system-aarch64 -machine type=virt -cpu cortex-a53 -smp $(CPUS) -m $(MEM_SIZE)k -serial null -serial mon:stdio -nographic -no-reboot -kernel 
-cortex_DEBUGGER		:= arm-none-eabi-gdb
+cortex_DEBUGGER		:= gdb
 cortex_FLASHER		= $(TLS)/eposflash/eposflash-$(MMOD) -d /dev/ttyACM0 -f
-cortex_MAGIC		:= --omagic
+cortex_MAGIC		:= --nmagic
 cortex_CODE_NAME	:= .init
-cortex_DATA_NAME	:=
+cortex_DATA_NAME	:= .data
 cortex_IMG_SUFFIX	:= .bin
 endif
 
 ifeq ($(MMOD),lm3s811)
-cortex_EMULATOR		= qemu-system-arm -machine lm3s811evb -m $(MEM_SIZE)k -serial mon:stdio -serial null -nographic -no-reboot -kernel 
+cortex_EMULATOR		= qemu-system-arm $(QEMU_DEBUG) -machine lm3s811evb -m $(MEM_SIZE)k -serial mon:stdio -serial null -nographic -no-reboot -kernel 
 cortex_CC_FLAGS		:= -mcpu=cortex-m3 -mthumb -mabi=atpcs
 cortex_AS_FLAGS		:= -mcpu=cortex-m3 -mthumb -meabi=gnu
 cortex_LD_FLAGS		:=
-cortex_DEBUGGER		:= arm-none-eabi-gdb
+cortex_DEBUGGER		:= gdb
 cortex_FLASHER		= $(TLS)/eposflash/eposflash-$(MMOD) -d /dev/ttyACM0 -f
 cortex_MAGIC		:= --omagic
 cortex_CODE_NAME	:= .init
@@ -166,7 +184,7 @@ cortex_EMULATOR		=
 cortex_CC_FLAGS		:= -mcpu=cortex-m3 -mthumb -mabi=atpcs
 cortex_AS_FLAGS		:= -mcpu=cortex-m3 -mthumb -meabi=gnu
 cortex_LD_FLAGS		:=
-cortex_DEBUGGER		:= arm-none-eabi-gdb
+cortex_DEBUGGER		:= gdb
 cortex_FLASHER		= $(TLS)/eposflash/eposflash-$(MMOD) -d /dev/ttyACM0 -f
 cortex_MAGIC		:= --omagic
 cortex_CODE_NAME	:= .init
@@ -175,29 +193,36 @@ cortex_IMG_SUFFIX	:= .img
 endif
 
 ifeq ($(MMOD),sifive_e)
-riscv_CC_FLAGS          := -Wl, -mno-relax
-riscv_AS_FLAGS          := 
-riscv_LD_FLAGS          := --no-relax
-riscv_EMULATOR			= qemu-system-riscv32 -machine virt -cpu rv32gcsu-v1.10.0 -smp $(CPUS) -m $(MEM_SIZE)k -serial mon:stdio -bios none -nographic -no-reboot -kernel 
-riscv_DEBUGGER          := $(COMP_PREFIX)gdb
-riscv_FLASHER           := 
-riscv_MAGIC             := --nmagic
-riscv_CODE_NAME := .init
-riscv_DATA_NAME :=
-riscv_IMG_SUFFIX        := .img
+riscv_CC_FLAGS		:= -march=rv32gc -mabi=ilp32f -Wl, -mno-relax
+riscv_AS_FLAGS		:= -march=rv32gc -mabi=ilp32f
+riscv_LD_FLAGS		:= -m elf32lriscv_ilp32f --no-relax
+riscv_EMULATOR		= qemu-system-riscv32 $(QEMU_DEBUG) -machine sifive_e -m $(MEM_SIZE)k -serial mon:stdio -bios none -nographic -no-reboot $(BOOT_ROM) -kernel 
+riscv_DEBUGGER		:= $(COMP_PREFIX)gdb
+riscv_FLASHER		:= 
+riscv_MAGIC		:= --nmagic
+riscv_CODE_NAME		:= .init
+riscv_DATA_NAME		:= .data
+riscv_IMG_SUFFIX	:= .img
 endif
 
 ifeq ($(MMOD),sifive_u)
-riscv_CC_FLAGS          := -mcmodel=medany
-riscv_AS_FLAGS          := 
-riscv_LD_FLAGS          := 
-riscv_EMULATOR          = qemu-system-riscv64 -machine virt -smp $(CPUS) -m $(MEM_SIZE)k -serial mon:stdio -bios none -nographic -no-reboot -kernel 
-riscv_DEBUGGER          := $(COMP_PREFIX)gdb
-riscv_FLASHER           := 
-riscv_MAGIC             := --omagic
-riscv_CODE_NAME := .init
-riscv_DATA_NAME :=
-riscv_IMG_SUFFIX        := .img
+ifeq ($(ARCH),rv64)
+riscv_CC_FLAGS		:= -march=rv64gc -mabi=lp64d -Wl, -mno-relax -mcmodel=medany
+riscv_AS_FLAGS		:= -march=rv64gc -mabi=lp64d
+riscv_LD_FLAGS		:= -m elf64lriscv_lp64f --no-relax
+riscv_EMULATOR		= qemu-system-riscv64 $(QEMU_DEBUG) -machine sifive_u -smp 2 -m $(MEM_SIZE)k -serial mon:stdio -bios none -nographic -no-reboot $(BOOT_ROM) -kernel 
+else
+riscv_CC_FLAGS      := -march=rv32gc -mabi=ilp32d -Wl, -mno-relax
+riscv_AS_FLAGS      := -march=rv32gc -mabi=ilp32d
+riscv_LD_FLAGS      := -m elf32lriscv_ilp32f --no-relax
+riscv_EMULATOR     = qemu-system-riscv32 $(QEMU_DEBUG) -machine virt -cpu rv32 -smp $(CPUS) -m $(MEM_SIZE)k -serial mon:stdio -bios none -nographic -no-reboot $(BOOT_ROM) -kernel 
+endif 
+riscv_DEBUGGER		:= $(COMP_PREFIX)gdb
+riscv_FLASHER		:= 
+riscv_MAGIC		:= --nmagic
+riscv_CODE_NAME		:= .init
+riscv_DATA_NAME		:= .data
+riscv_IMG_SUFFIX	:= .img
 endif
 
 atmega_CC_FLAGS		:= -mmcu=atmega128 -Wno-inline
@@ -211,51 +236,43 @@ atmega_CODE_NAME	:= .init
 atmega_DATA_NAME	:= .data
 atmega_IMG_SUFFIX	:= .hex
 
-MACH_CC_FLAGS           := $($(MACH)_CC_FLAGS) -O -nostdinc -fno-stack-protector -fno-pie -Wno-builtin-declaration-mismatch -Wno-array-bounds -Wno-address-of-packed-member
-MACH_CXX_FLAGS          := $($(MACH)_CC_FLAGS) -O -std=c++14 -nostdinc --no-exceptions --no-rtti --no-use-cxa-atexit --no-asynchronous-unwind-tables -fno-stack-protector -fno-pie -fdata-sections -ffunction-sections -Wall -Werror -Wno-builtin-declaration-mismatch -Wno-array-bounds -Wno-attribute-alias -Wno-placement-new -Wno-class-memaccess -Wno-address-of-packed-member
-MACH_AS_FLAGS           := $($(MACH)_AS_FLAGS)
-MACH_LD_FLAGS           := $($(MACH)_LD_FLAGS)
-MACH_CODE_NAME          := $($(MACH)_CODE_NAME)
-MACH_DATA_NAME          := $($(MACH)_DATA_NAME)
-MACH_EMULATOR           := $($(MACH)_EMULATOR)
-MACH_DEBUGGER           := $(TERM) $($(MACH)_DEBUGGER) -ex "target remote:1235" -ex "set confirm off"
-MACH_FLASHER            := $($(MACH)_FLASHER)
-MACH_MAGIC              := $($(MACH)_MAGIC)
-MACH_IMGSUFF            := $($(MACH)_IMG_SUFFIX)
+MACH_CC_FLAGS		:= $($(MACH)_CC_FLAGS) -O -nostdinc --no-stack-protector --no-pie -Wno-builtin-declaration-mismatch -Wno-array-bounds -Wno-address-of-packed-member -Wno-stringop-overflow
+MACH_CXX_FLAGS		:= $($(MACH)_CC_FLAGS) -O -std=c++14 -nostdinc --no-exceptions --no-rtti --no-use-cxa-atexit --no-unwind-tables --no-asynchronous-unwind-tables --no-stack-protector --no-pie --data-sections --function-sections -Wall -Werror -Wno-builtin-declaration-mismatch -Wno-array-bounds -Wno-attribute-alias -Wno-placement-new -Wno-class-memaccess -Wno-address-of-packed-member -Wno-stringop-overflow
+MACH_AS_FLAGS		:= $($(MACH)_AS_FLAGS)
+MACH_LD_FLAGS		:= $($(MACH)_LD_FLAGS)
+MACH_CODE_NAME		:= $($(MACH)_CODE_NAME)
+MACH_DATA_NAME		:= $($(MACH)_DATA_NAME)
+MACH_EMULATOR		= $($(MACH)_EMULATOR)
+MACH_DEBUGGER		:= $(TERM) $($(MACH)_DEBUGGER) -ex "target remote:1235" -ex "set confirm off"
+MACH_FLASHER		= $($(MACH)_FLASHER)
+MACH_MAGIC		:= $($(MACH)_MAGIC)
+MACH_IMGSUFF		:= $($(MACH)_IMG_SUFFIX)
 
 ifeq ($(DEBUG),1)
 MACH_CC_FLAGS		:= -g -feliminate-unused-debug-symbols $(MACH_CC_FLAGS)
-MACH_CXX_FLAGS          := -g -feliminate-unused-debug-symbols $(MACH_CXX_FLAGS)
+MACH_CXX_FLAGS		:= -g -feliminate-unused-debug-symbols $(MACH_CXX_FLAGS)
 MACH_AS_FLAGS		:= -g $(MACH_AS_FLAGS)
-MACH_EMULATOR           := $(subst -m ,-gdb tcp::1235 -S -m ,$(MACH_EMULATOR))
+MACH_EMULATOR		= $(subst -m ,-gdb tcp::1235 -S -m ,$($(MACH)_EMULATOR))
 endif
-
-# Architecture specifics
-ARCH_LITTLE		:= little
-ARCH_BIG		:= big
-ARCH_ENDIANESS		= $(ARCH_$(call GETTK,ENDIANESS,$(ARCH_TRAITS)))
-ARCH_WORD_SIZE		= $(call GETTK,WORD_SIZE,$(ARCH_TRAITS))
-ARCH_CLOCK		= $(call GETTK,CLOCK,$(ARCH_TRAITS))
 
 # Tools and flags to compile system tools
 TCC		:= gcc -ansi -c -Werror
-TCCFLAGS	:= -m32 -Wall -O -I$(INCLUDE)
+TCCFLAGS	= $(CC_M_FLAG) -Wall -O -I$(INCLUDE)
 
 TCXX		:= g++ -c -ansi -fno-exceptions -std=c++14
-TCXXFLAGS	:= -m32 -Wall -O -I$(INCLUDE)
+TCXXFLAGS	= $(CC_M_FLAG) -Wall -O -I$(INCLUDE)
 
 TCPP		:= gcc -E
 TCPPFLAGS	:= -I$(INCLUDE)
 
 TLD		:= gcc
-TLDFLAGS	:= -m32
+TLDFLAGS	= $(CC_M_FLAG)
 
 # Tools and flags to compile applications
 ACC		= $(BIN)/eposcc $(MACH_CC_FLAGS)  -c -ansi -O
-ACXX		= $(BIN)/eposcc $(MACH_CXX_FLAGS) -c -ansi -O
-AF77		= $(BIN)/eposcc $(MACH_CC_FLAGS)  -c -ansi -O
-ALD		= $(BIN)/eposcc --$(SMOD) --no-warn-mismatch 
-ALDFLAGS	:= --gc-sections $(MACH_MAGIC)
+ACCFLAGS	= $(MACH_CXX_FLAGS)
+ALD		= $(BIN)/eposcc --$(SMOD) --no-warn-mismatch
+ALDFLAGS	= --gc-sections $(MACH_MAGIC)
 
 # Tools and flags to compile the system
 AR		= $(COMP_PREFIX)ar
@@ -286,7 +303,7 @@ EMULATOR	= $(MACH_EMULATOR)
 FLASHER 	= $(MACH_FLASHER)
 
 INSTALL		:= install
-LINK            := ln -sf
+LINK		:= ln -sf
 
 LD		= $(COMP_PREFIX)ld
 LDFLAGS		= $(MACH_LD_FLAGS) -nostdlib -L$(LIB) -Bstatic
@@ -313,9 +330,9 @@ TCPDUMP		:= tcpdump -tttttennvvvXXr
 TEE		:= tee
 
 ifndef DISPLAY
-TERM        := sh -c
+TERM		:= sh -c
 else
-TERM        := xterm -e
+TERM		:= konsole -e
 endif
 
 TOUCH		:= touch

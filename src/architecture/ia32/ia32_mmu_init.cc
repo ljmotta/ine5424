@@ -11,7 +11,7 @@ void MMU::init()
 
     System_Info * si = System::info();
 
-    db<Init, MMU>(INF) << "MMU::memory={base=" << reinterpret_cast<void *>(si->pmm.mem_base) << ",size="
+    db<Init, MMU>(INF) << "MMU::memory={base=" << reinterpret_cast<void *>(si->bm.mem_base) << ",size="
                        << (si->bm.mem_top - si->bm.mem_base) / 1024 << "KB}" << endl;
     db<Init, MMU>(INF) << "MMU::free1={base=" << reinterpret_cast<void *>(si->pmm.free1_base) << ",size="
                        << (si->pmm.free1_top - si->pmm.free1_base) / 1024 << "KB}" << endl;
@@ -95,8 +95,7 @@ void MMU::init()
     }
 
     // Remember the master page directory (created during SETUP)
-    _master = reinterpret_cast<Page_Directory *>(CPU::pdp());
-
+    _master = current();
     db<Init, MMU>(INF) << "MMU::master page directory=" << _master << endl;
 }
 

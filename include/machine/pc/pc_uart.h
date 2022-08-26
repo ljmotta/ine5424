@@ -17,7 +17,7 @@ private:
     typedef CPU::Reg16 Reg16;
 
     static const unsigned int UNITS = Traits<UART>::UNITS;
-    static const unsigned int CLOCK = Traits<UART>::CLOCK / 16;
+    static const unsigned int CLOCK = Traits<UART>::CLOCK / 16; // reference clock is pre-divided by 16
 
 public:
     // Register Addresses (relative to base I/O port)
@@ -38,6 +38,21 @@ public:
         DLL = 0, // Divisor Latch LSB	R/W, DLAB = 1
         DLH = 1  // Divisor Latch MSB	R/W, DLAB = 1
     };
+
+    // Useful bits from multiple registers
+    enum {
+        DATA_READY          = 1 << 0,   // LSR
+        THOLD_REG           = 1 << 5,   // LSR
+        TEMPTY_REG          = 1 << 6,
+        DATA_BITS_MASK      = 1 << 1 | 1 << 0,
+        PARITY_MASK         = 1 << 3,
+        DLAB_ENABLE         = 1 << 7,
+        STOP_BITS_MASK      = 1 << 2,
+        LOOPBACK_MASK       = 1 << 4,
+        FIFO_ENABLE         = 1 << 0,
+        DEFAULT_DATA_BITS   = 5
+    };
+
 
 public:
     NS16550AF(unsigned int unit, unsigned int brate, unsigned int dbits, unsigned int par, unsigned int sbits):
@@ -62,12 +77,12 @@ public:
 
         // Set parity (0 [no], 1 [odd], 2 [even])
         if(par) {
-            lcr |= 1 << 3;
+            lcr |= PARITY_MASK;
             lcr |= (par - 1) << 4;
         }
 
         // Set stop-bits (1, 2 or 3 [1.5])
-        lcr |= (sbits > 1) ? (1 << 2) : 0;
+        lcr |= (sbits > 1) ? STOP_BITS_MASK : 0;
 
         reg(LCR, lcr);
 
@@ -81,7 +96,7 @@ public:
     void config(unsigned int * brate, unsigned int * dbits, unsigned int * par, unsigned int * sbits) {
         // Get clock divisor
         dlab(true);
-        *brate = CLOCK * ((reg(DLH) << 8) | reg(DLL));
+        *brate = CLOCK / ((reg(DLH) << 8) | reg(DLL));
         dlab(false);
 
         Reg8 lcr = reg(LCR);
@@ -113,10 +128,10 @@ public:
         config(b, db, p, sb);
     }
 
-    void loopback(bool flag) { reg(MCR, reg(MCR) | (flag << 4)); }
+    void loopback(bool flag) { reg(MCR, reg(MCR) | LOOPBACK_MASK); }
 
-    bool rxd_ok() { return reg(LSR) & (1 << 0); }
-    bool txd_ok() { return reg(LSR) & (1 << 5); }
+    bool rxd_ok() { return reg(LSR) & DATA_READY; }
+    bool txd_ok() { return reg(LSR) & THOLD_REG; }
 
     void dtr() { reg(MCR, reg(MCR) | (1 << 0)); }
     void rts() { reg(MCR, reg(MCR) | (1 << 1)); }
@@ -162,6 +177,17 @@ public:
 
     char get() { while(!rxd_ok()); return rxd(); }
     void put(char c) { while(!txd_ok()); txd(c); }
+
+    int read(char * data, unsigned int max_size) {
+        for(unsigned int i = 0; i < max_size; i++)
+            data[i] = get();
+        return 0;
+    }
+    int write(const char * data, unsigned int size) {
+        for(unsigned int i = 0; i < size; i++)
+            put(data[i]);
+        return 0;
+    }
 
     bool ready_to_get() { return rxd_ok(); }
     bool ready_to_put() { return txd_ok(); }

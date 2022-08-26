@@ -2,7 +2,7 @@
 
 #include <architecture/pmu.h>
 
-#if defined(__mmod_zynq__) | defined(__mmod_raspberry_pi3__) | defined(__mmod_realview_pbx__)
+#ifdef __cortex_a__
 
 __BEGIN_SYS
 

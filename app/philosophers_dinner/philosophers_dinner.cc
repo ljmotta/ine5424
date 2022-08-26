@@ -1,4 +1,4 @@
-// EPOS Semaphore Component Test Program
+// EPOS Scheduler Test Program
 
 #include <machine/display.h>
 #include <time.h>
