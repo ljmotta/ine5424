@@ -118,7 +118,8 @@ template<> struct Traits<Thread>: public Traits<Build>
 {
     static const bool enabled = Traits<System>::multithread;
     static const bool trace_idle = hysterically_debugged;
-    static const unsigned int QUANTUM = 500000; // us
+    static const bool preemptive = true;
+    static const unsigned int QUANTUM = 100000; // us
 };
 
 template<> struct Traits<Scheduler<Thread>>: public Traits<Build>

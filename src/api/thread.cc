@@ -11,6 +11,8 @@ __END_UTIL
 
 __BEGIN_SYS
 
+extern "C" { void __epos_app_entry(); }
+
 volatile unsigned int Thread::_thread_count;
 Scheduler_Timer * Thread::_timer;
 
@@ -38,15 +40,20 @@ void Thread::constructor_epilogue(Log_Addr entry, unsigned int stack_size)
                     << "},context={b=" << _context
                     << "," << *_context << "}) => " << this << endl;
 
+    assert((_state != WAITING) && (_state != FINISHING)); // invalid states
+
     switch(_state) {
-        case RUNNING: break;
+        case RUNNING: assert(entry == __epos_app_entry); break;
         case READY: _ready.insert(&_link); break;
         case SUSPENDED: _suspended.insert(&_link); break;
         case WAITING: break;    // invalid state, for switch completion only
         case FINISHING: break;	// invalid state, for switch completion only
     }
 
-    unlock();
+    if(preemptive && (_state == READY) && (_link.rank() != IDLE))
+        reschedule();
+    else
+        unlock();
 }
 
 
@@ -107,7 +114,7 @@ int Thread::join()
 
     if(_state != FINISHING) {
         _joining = running();
-        _joining->suspend();
+        _joining->suspend(true);
     } else
         unlock();
 
@@ -135,9 +142,10 @@ void Thread::pass()
 }
 
 
-void Thread::suspend()
+void Thread::suspend(bool locked)
 {
-    lock();
+    if(!locked)
+        lock();
 
     db<Thread>(TRC) << "Thread::suspend(this=" << this << ")" << endl;
 
@@ -158,17 +166,24 @@ void Thread::suspend()
 }
 
 
-void Thread::resume()
+void Thread::resume(bool unpreemptive)
 {
     lock();
 
     db<Thread>(TRC) << "Thread::resume(this=" << this << ")" << endl;
 
-    _suspended.remove(this);
-    _state = READY;
-    _ready.insert(&_link);
+    if(_state == SUSPENDED) {
+        _suspended.remove(this);
+        _state = READY;
+        _ready.insert(&_link);
 
-    unlock();
+        if(preemptive && !unpreemptive)
+            reschedule();
+    } else {
+        db<Thread>(WRN) << "Resume called for unsuspended object!" << endl;
+
+        unlock();
+    }
 }
 
 
@@ -207,8 +222,7 @@ void Thread::exit(int status)
     if(prev->_joining) {
         Thread * joining = prev->_joining;
         prev->_joining = 0;
-        joining->resume(); // implicit unlock()
-        lock();
+        joining->resume(true);
     }
 
     _running = _ready.remove()->object();
@@ -248,7 +262,13 @@ void Thread::wakeup(Queue * q)
         t->_state = READY;
         t->_waiting = 0;
         _ready.insert(&t->_link);
-    }
+
+        if(preemptive)
+            reschedule();
+        else
+            unlock();
+    } else
+        unlock();
 }
 
 
@@ -258,11 +278,20 @@ void Thread::wakeup_all(Queue * q)
 
     assert(locked()); // locking handled by caller
 
-    while(!q->empty()) {
-        Thread * t = q->remove()->object();
-        t->_state = READY;
-        t->_waiting = 0;
-        _ready.insert(&t->_link);
+    if(!q->empty()) {
+        while(!q->empty()) {
+            Thread * t = q->remove()->object();
+            t->_state = READY;
+            t->_waiting = 0;
+            _ready.insert(&t->_link);
+        }
+
+        if(preemptive)
+            reschedule();
+        else
+            unlock();
+    } else {
+        unlock();
     }
 }
 
