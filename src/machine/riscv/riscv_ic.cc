@@ -23,9 +23,9 @@ void IC::entry()
     // Entry-point for the dummy contexts used by the first dispatching of newly created threads
     ASM("       .global _int_leave              \n"
         "_int_leave:                            \n");
-if(Traits<IC>::hysterically_debugged)
+if(Traits<IC>::hysterically_debugged) {
     ASM("       jalr    %0                      \n" : : "r"(print_context));
-
+}
     // Restore context
     ASM("1:                                     \n");
     CPU::Context::pop(true);
