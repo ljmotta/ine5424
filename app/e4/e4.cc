@@ -16,7 +16,7 @@ int func_a() {
 
 int func_b() {
   for (unsigned int i = 0; i < thread_num; ++i) {
-    t[i] = new Thread(Thread::Configuration(Thread::READY, Thread::HIGH), &func_a);
+    t[i] = new Thread(&func_a);
     cout << code++ << " " << endl;
   }
   for (unsigned int i = 0; i < thread_num; ++i) {
@@ -29,7 +29,7 @@ int func_b() {
 int main()
 {
   cout << "Simple Test" << endl;
-  Thread * c = new Thread(Thread::Configuration(Thread::RUNNING, Thread::NORMAL -1), &func_b);
+  Thread * c = new Thread(Thread::Configuration(Thread::READY, Thread::NORMAL-1), &func_b);
   c->join();
   cout << "\nThe end!" << endl;
   delete c;
