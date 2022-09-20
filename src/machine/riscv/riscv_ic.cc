@@ -26,7 +26,6 @@ void IC::entry()
 if(Traits<IC>::hysterically_debugged) {
     ASM("       jalr    %0                      \n" : : "r"(print_context));
 }
-
     // Restore context
     ASM("1:                                     \n");
     CPU::Context::pop(true);

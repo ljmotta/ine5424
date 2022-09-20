@@ -100,8 +100,8 @@ UUID		= $(shell cat /proc/sys/kernel/random/uuid | sed 's/-//g')
 ia32_COMP_PREFIX	:= /usr/bin/x86_64-linux-gnu-
 armv7_COMP_PREFIX	:= /usr/bin/arm-none-eabi-
 armv8_COMP_PREFIX	:= /usr/bin/aarch64-linux-gnu-
-rv32_COMP_PREFIX	:= /usr/local/rv32/bin/riscv32-unknown-linux-gnu-
-rv64_COMP_PREFIX	:= /usr/local/rv64/bin/riscv64-unknown-linux-gnu-
+rv32_COMP_PREFIX	:= /usr/bin/riscv64-unknown-linux-gnu-
+rv64_COMP_PREFIX	:= /usr/bin/riscv64-unknown-linux-gnu-
 COMP_PREFIX		= $($(ARCH)_COMP_PREFIX)
 
 # Architecture specifics
