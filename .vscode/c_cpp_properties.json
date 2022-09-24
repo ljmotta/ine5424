@@ -1,0 +1,31 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/include/utility/**",
+                "${workspaceFolder}/include/system/**",
+                "${workspaceFolder}/include/machine/**",
+                "${workspaceFolder}/include/machine/riscv/**",
+                "${workspaceFolder}/include/machine/cortex/**",
+                "${workspaceFolder}/include/machine/engine/**",
+                "${workspaceFolder}/include/machine/pc/**",
+                "${workspaceFolder}/include/architecture/**",
+                "${workspaceFolder}/include/architecture/rv64/**",
+                "${workspaceFolder}/include/architecture/rv32/**",
+                "${workspaceFolder}/include/architecture/ia32/**",
+                "${workspaceFolder}/include/architecture/armv8/**",
+                "${workspaceFolder}/include/architecture/armv7/**",
+                "${workspaceFolder}/app/**/*"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++14",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

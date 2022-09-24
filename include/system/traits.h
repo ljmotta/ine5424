@@ -184,7 +184,7 @@ struct Traits_Tokens
     enum {LITTLE, BIG};
 
     // Serial display engines
-    enum {UART, USB};
+    enum {UART, USB, SPI};
 
     // Life span multipliers
     enum {FOREVER = 0, SECOND = 1, MINUTE = 60, HOUR = 3600, DAY = 86400, WEEK = 604800, MONTH = 2592000, YEAR = 31536000};
