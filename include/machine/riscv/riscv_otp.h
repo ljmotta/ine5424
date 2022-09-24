@@ -1,255 +1,221 @@
-// EPOS RISC-V UART Mediator Declarations
+// EPOS RISC-V OTP Mediator Declarations
 
-#ifndef __riscv_uart_h
-#define __riscv_uart_h
+#ifndef __riscv_otp_h
+#define __riscv_otp_h
 
 #include <architecture/cpu.h>
 #include <machine/uart.h>
 #include <system/memory_map.h>
+#include <utility/string.h>
+#include <time.h>
+
+#define EINVAL 22
 
 __BEGIN_SYS
+
+static inline void writel(unsigned int val, volatile unsigned int *addr) {
+    ASM("fence " #ow "," #ow : : : "memory");
+    (*(volatile unsigned int *)(addr) = (val));
+}
+
+static inline unsigned int readl(void *addr) {
+    unsigned int val = (*(volatile unsigned int *)(addr));
+    ASM("fence " #ir "," #ir : : : "memory");
+    return val;
+}
 
 class SiFive_OTP
 {
 private:
     typedef CPU::Reg32 Reg32;
 
-    static const unsigned int UNITS = Traits<UART>::UNITS;
-    static const unsigned int CLOCK = Traits<UART>::CLOCK;
+    static const unsigned int TPW_DELAY = Traits<OTP>::TPW_DELAY;
+    static const unsigned int TPWI_DELAY = Traits<OTP>::TPWI_DELAY;
+    static const unsigned int TASP_DELAY = Traits<OTP>::TASP_DELAY;
+    static const unsigned int TCD_DELAY = Traits<OTP>::TCD_DELAY;
+    static const unsigned int TKL_DELAY = Traits<OTP>::TKL_DELAY;
+    static const unsigned int TMS_DELAY = Traits<OTP>:: TMS_DELAY;
 
-    // OTP registers
+    // OTP registers offset from OTP_BASE
     enum {
-	    PA     /* Address input */
-	    PAIO   /* Program address input */
-	    PAS    /* Program redundancy cell selection input */
-	    PCE    /* OTP Macro enable input */
-	    PCLK   /* Clock input */
-	    PDIN   /* Write data input */
-	    PDOUT  /* Read data output */
-	    PDSTB  /* Deep standby mode enable input (active low) */
-	    PPROG  /* Program mode enable input */
-	    PTC    /* Test column enable input */
-	    PTM    /* Test mode enable input */
-	    PTM_REP/* Repair function test mode enable input */
-	    PTR    /* Test row enable input */
-	    PTRIM  /* Repair function enable input */
-	    PWE    /* Write enable input (defines program cycle) */
+	    PA      = 0x00,     /* Address input */
+	    PAIO    = 0x04,   /* Program address input */
+	    PAS     = 0x08,    /* Program redundancy cell selection input */
+	    PCE     = 0x0C,    /* OTP Macro enable input */
+	    PCLK    = 0x10,   /* Clock input */
+	    PDIN    = 0x14,   /* Write data input */
+	    PDOUT   = 0x18,  /* Read data output */
+	    PDSTB   = 0x1C,  /* Deep standby mode enable input (active low) */
+	    PPROG   = 0x20,  /* Program mode enable input */
+	    PTC     = 0x24,    /* Test column enable input */
+	    PTM     = 0x28,    /* Test mode enable input */
+	    PTM_REP = 0x2C,/* Repair function test mode enable input */
+	    PTR     = 0x30,    /* Test row enable input */
+	    PTRIM   = 0x34,  /* Repair function enable input */
+	    PWE     = 0x38    /* Write enable input (defines program cycle) */
     };
 
-public:
-    SiFive_UART(unsigned int unit, unsigned int baud_rate, unsigned int data_bits, unsigned int parity, unsigned int stop_bits): _rxd_pending(false), _rxd(0) {
-        assert(data_bits = 8);
-        config(baud_rate, data_bits, parity, stop_bits);
-    }
-
-    void config(unsigned int baud_rate, unsigned int data_bits, unsigned int parity, unsigned int stop_bits) {
-        reg(TXCTRL) = 1 << 16 | stop_bits | TXEN; // TXCNT = 1, STOP = (stop_bits - 1) << 1
-        reg(RXCTRL) = 1 << 16 | RXEN; // RXCNT = 1
-        reg(DIV) = ((Traits<UART>::CLOCK / baud_rate) - 1) & 0xffff;
-    }
-
-    void config(unsigned int * baud_rate, unsigned int * data_bits, unsigned int * parity, unsigned int * stop_bits) {
-        *baud_rate = Traits<UART>::CLOCK / (reg(DIV) + 1);
-        *data_bits = 8;
-        *parity = UART_Common::NONE;
-        *stop_bits = ((reg(TXCTRL) & NSTOP) >> 1) + 1;
-    }
-
-    Reg8 rxd() { return (_rxd_pending ? _rxd : reg(RXDATA)) & DATA; }
-    void txd(Reg8 c) { reg(TXDATA) = c & DATA; }
-
-    bool rxd_ok() {
-        _rxd = reg(RXDATA);
-        _rxd_pending = !(_rxd & EMPTY);
-        return _rxd_pending;
-    }
-    bool txd_ok() { return !(reg(TXDATA) & FULL); }
-
-    void int_enable(bool receive = true, bool transmit = true, bool line = true, bool modem = true) {
-         reg(IE) = (receive << 1) | transmit;
-    }
-    void int_disable(bool receive = true, bool transmit = true, bool line = true, bool modem = true) {
-         reg(IE) = reg(IE) & ~((receive << 1) | transmit);
-    }
-
-    void flush() { while(!(reg(IP) & TXWM)); }
-
-private:
-    bool _rxd_pending;
-    Reg32 _rxd;
-
-    static volatile CPU::Reg32 & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg32 *>(Memory_Map::UART0_BASE)[o / sizeof(CPU::Reg32)]; }
-};
-
-class NS16500A
-{
-private:
-    typedef CPU::Reg8 Reg8;
-    typedef CPU::Reg32 Reg32;
-
-    static const unsigned int UNITS = Traits<UART>::UNITS;
-    static const unsigned int CLOCK = Traits<UART>::CLOCK / 16; // reference clock is pre-divided by 16
-
-public:
-    // UART registers offsets from UART_BASE
     enum {
-        DIV_LSB         = 0,
-        TXD             = 0,
-        RXD             = 0,
-        IER             = 1,
-        DIV_MSB         = 1,
-        FCR             = 2,
-        ISR             = 2,
-        LCR             = 3,
-        MCR             = 4,
-        LSR             = 5
-    };
-
-    // Useful bits from multiple registers
-    enum {
-        DATA_READY          = 1 << 0,
-        THOLD_REG           = 1 << 5,
-        TEMPTY_REG          = 1 << 6,
-        DATA_BITS_MASK      = 1 << 1 | 1 << 0,
-        PARITY_MASK         = 1 << 3,
-        DLAB_ENABLE         = 1 << 7,
-        STOP_BITS_MASK      = 1 << 2,
-        LOOPBACK_MASK       = 1 << 4,
-        FIFO_ENABLE         = 1 << 0,
-        DEFAULT_DATA_BITS   = 5
-    };
-
-public:
-    NS16500A(unsigned int unit, unsigned int baud_rate, unsigned int data_bits, unsigned int parity, unsigned int stop_bits) {
-        assert(unit < UNITS);
-        config(baud_rate, data_bits, parity, stop_bits);
+        BYTES_PER_FUSE		    = 4, // 8 * 4
+        TOTAL_FUSES             = 4096,
+        PA_RESET_VAL		    = 0x00,
+        PAS_RESET_VAL		    = 0x00,
+        PAIO_RESET_VAL		    = 0x00,
+        PDIN_RESET_VAL		    = 0x00,
+        PTM_RESET_VAL		    = 0x00,
+        PCLK_ENABLE_VAL			= 0x01,
+        PCLK_DISABLE_VAL		= 0x00,
+        PWE_WRITE_ENABLE		= 0x01,
+        PWE_WRITE_DISABLE		= 0x00,
+        PTM_FUSE_PROGRAM_VAL	= 0x10,
+        PCE_ENABLE_INPUT		= 0x01,
+        PCE_DISABLE_INPUT		= 0x00,
+        PPROG_ENABLE_INPUT		= 0x01,
+        PPROG_DISABLE_INPUT		= 0x00,
+        PTRIM_ENABLE_INPUT		= 0x01,
+        PTRIM_DISABLE_INPUT		= 0x00,
+        PDSTB_DEEP_STANDBY_ENABLE	= 0x01,
+        PDSTB_DEEP_STANDBY_DISABLE	= 0x00
     }
 
-    void config(unsigned int baud_rate, unsigned int data_bits, unsigned int parity, unsigned int stop_bits) {
-        // Disable all interrupts
-        reg(IER) = 0;
+public:
+    SiFive_OTP() {
+    }
 
-        // Set clock divisor
-        unsigned int div = CLOCK / baud_rate;
-        dlab(true);
-        reg(DIV_LSB) = div;
-        reg(DIV_MSB) = div >> 8;
-        dlab(false);
-
-        // Set data word length (5, 6, 7 or 8)
-        Reg8 lcr = data_bits - 5;
-
-        // Set parity (0 [no], 1 [odd], 2 [even])
-        if(parity) {
-            lcr |= PARITY_MASK;
-            lcr |= (parity - 1) << 4;
+    int read(int offset, void *buf, int size) {
+        /* Check if offset and size are multiple of BYTES_PER_FUSE */
+        if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
+            // printf("%s: size and offset must be multiple of 4.\n",
+            //     __func__);
+            return -EINVAL;
         }
 
-        // Set stop-bits (1, 2 or 3 [1.5])
-        lcr |= (stop_bits > 1) ? STOP_BITS_MASK : 0;
+        int fuseidx = offset / BYTES_PER_FUSE;
+        int fusecount = size / BYTES_PER_FUSE;
 
-        reg(LCR) = lcr;
+        /* check bounds */
+        if (offset < 0 || size < 0)
+            return -EINVAL;
+        if (fuseidx >= &SiFive_OTP::TOTAL_FUSES)
+            return -EINVAL;
+        if ((fuseidx + fusecount) > &SiFive_OTP::TOTAL_FUSES)
+            return -EINVAL;
 
-        // Enables Tx and Rx FIFOs, clear them, set trigger to 14 bytes
-        reg(FCR) = 0xc7;
+        unsigned int fusebuf[fusecount];
 
-        // Set DTR, RTS and OUT2 of MCR
-        reg(MCR) = reg(MCR) | 0x0b;
+        /* init OTP */
+        writel(PDSTB_DEEP_STANDBY_ENABLE, &SiFive_OTP::PDSTB);
+        writel(PTRIM_ENABLE_INPUT, &SiFive_OTP::PTRIM);
+        writel(PCE_ENABLE_INPUT, &SiFive_OTP::PCE);
+
+        /* read all requested fuses */
+        for (unsigned int i = 0; i < fusecount; i++, fuseidx++) {
+            writel(fuseidx, &&SiFive_OTP::PA);
+
+            /* cycle clock to read */
+            writel(PCLK_ENABLE_VAL, &SiFive_OTP::PCLK);
+            // EPOS
+            Delay tcd(TCD_DELAY);
+            writel(PCLK_DISABLE_VAL, &SiFive_OTP::PCLK);
+            // EPOS
+            Delay tkl(TKL_DELAY);
+
+            /* read the value */
+            fusebuf[i] = readl(&SiFive_OTP::PDOUT);
+        }
+
+        /* shut down */
+        writel(PCE_DISABLE_INPUT, &SiFive_OTP::PCE);
+        writel(PTRIM_DISABLE_INPUT, &SiFive_OTP::PTRIM);
+        writel(PDSTB_DEEP_STANDBY_DISABLE, &SiFive_OTP::PDSTB);
+
+        /* copy out */
+        memcpy(buf, fusebuf, size);
+
+        return size;
     }
 
-    void config(unsigned int * baud_rate, unsigned int * data_bits, unsigned int * parity, unsigned int * stop_bits) {
-        // Get clock divisor
-        dlab(true);
-        *baud_rate = CLOCK / (Reg32(reg(DIV_MSB) << 8) | Reg32(reg(DIV_LSB)));
-        dlab(false);
+    int write(int offset, const void *buf, int size) {
+        /* Check if offset and size are multiple of BYTES_PER_FUSE */
+        if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
+            // printf("%s: size and offset must be multiple of 4.\n",
+            //    __func__);
+            return -EINVAL;
+        }
 
-        *data_bits = Reg32(reg(LCR) & DATA_BITS_MASK) + DEFAULT_DATA_BITS;
+        int fuseidx = offset / BYTES_PER_FUSE;
+        int fusecount = size / BYTES_PER_FUSE;
+        unsigned int *write_buf = (unsigned int *)buf;
+        unsigned int write_data;
+        int i, pas, bit;
 
-        *parity = (Reg32(reg(LCR)) & PARITY_MASK) >> PARITY_MASK;
+        /* check bounds */
+        if (offset < 0 || size < 0)
+            return -EINVAL;
+        if (fuseidx >= &SiFive_OTP::TOTAL_FUSES)
+            return -EINVAL;
+        if ((fuseidx + fusecount) > &SiFive_OTP::TOTAL_FUSES)
+            return -EINVAL;
 
-        *stop_bits = (Reg32(reg(LCR) & STOP_BITS_MASK) >> STOP_BITS_MASK) + 1;
+        /* init OTP */
+        writel(PDSTB_DEEP_STANDBY_ENABLE, &SiFive_OTP::PDSTB);
+        writel(PTRIM_ENABLE_INPUT, &SiFive_OTP::PTRIM);
+
+        /* reset registers */
+        writel(PCLK_DISABLE_VAL, &SiFive_OTP::PCLK);
+        writel(PA_RESET_VAL, &SiFive_OTP::PA);
+        writel(PAS_RESET_VAL, &SiFive_OTP::PAS);
+        writel(PAIO_RESET_VAL, &SiFive_OTP::PAIO);
+        writel(PDIN_RESET_VAL, &SiFive_OTP::PDIN);
+        writel(PWE_WRITE_DISABLE, &SiFive_OTP::PWE);
+        writel(PTM_FUSE_PROGRAM_VAL, &SiFive_OTP::PTM);
+        // EPOS
+        Delay tms(TMS_DELAY);
+
+        writel(PCE_ENABLE_INPUT, &SiFive_OTP::PCE);
+        writel(PPROG_ENABLE_INPUT, &SiFive_OTP::PPROG);
+
+        /* write all requested fuses */
+        for (i = 0; i < fusecount; i++, fuseidx++) {
+            writel(fuseidx, &SiFive_OTP::PA);
+            write_data = *(write_buf++);
+
+            for (pas = 0; pas < 2; pas++) {
+                writel(pas, &SiFive_OTP::PAS);
+
+                for (bit = 0; bit < 32; bit++) {
+                    writel(bit, &SiFive_OTP::PAIO);
+                    writel(((write_data >> bit) & 1), &SiFive_OTP::PDIN);
+                    // EPOS
+                    Delay tasp(TASP_DELAY);
+
+                    writel(PWE_WRITE_ENABLE, &SiFive_OTP::PWE);
+
+                    // EPOS
+                    Delay tpw(TPW_DELAY);
+                    writel(PWE_WRITE_DISABLE, &SiFive_OTP::PWE);
+
+                    // EPOS
+                    Delay tpwi(TPWI_DELAY);
+                }
+            }
+
+            writel(PAS_RESET_VAL, &SiFive_OTP::PAS);
+        }
+
+        /* shut down */
+        writel(PWE_WRITE_DISABLE, &SiFive_OTP::PWE);
+        writel(PPROG_DISABLE_INPUT, &SiFive_OTP::PPROG);
+        writel(PCE_DISABLE_INPUT, &SiFive_OTP::PCE);
+        writel(PTM_RESET_VAL, &SiFive_OTP::PTM);
+        writel(PTRIM_DISABLE_INPUT, &SiFive_OTP::PTRIM);
+        writel(PDSTB_DEEP_STANDBY_DISABLE, &SiFive_OTP::PDSTB);
+
+        return size;
     }
-
-    Reg8 rxd() { return reg(RXD); }
-    void txd(Reg8 c) { reg(TXD) = c; }
-
-    bool rxd_ok() { return (reg(LSR) & DATA_READY); }
-    bool txd_ok() {  return (reg(LSR) & THOLD_REG); }
-
-    void int_enable(bool receive = true, bool transmit = true, bool line = true, bool modem = true) {
-        reg(IER) = receive | (transmit << 1) | (line << 2) | (modem << 3);
-    }
-    void int_disable(bool receive = true, bool transmit = true, bool line = true, bool modem = true) {
-        reg(IER) = reg(IER) & ~(receive | (transmit << 1) | (line << 2) | (modem << 3));
-    }
-
-    void flush() { while(!(reg(LSR) & TEMPTY_REG)); }
-
-    void reset() {
-        // Reconfiguring the UART implicitly resets it
-        unsigned int b, db, p, sb;
-        config(&b, &db, &p, &sb);
-        config(b, db, p, sb);
-    }
-
-    void loopback(bool flag) {
-        Reg8 mask = 0xff;
-        mask -= LOOPBACK_MASK;
-        mask += (flag << 4); // if 1, restore flag, else make it disable loopback
-        reg(MCR) = reg(MCR) & mask; 
-    }
-
-private:
-    void dlab(bool f) { reg(LCR) = (reg(LCR) & 0x7f) | (f << 7); }
-
-    static volatile CPU::Reg8 & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg8 *>(Memory_Map::UART0_BASE)[o / sizeof(CPU::Reg8)]; }
 };
 
-class UART: private UART_Common, private IF<(Traits<Build>::MODEL == Traits<Build>::SiFive_U) && (Traits<CPU>::WORD_SIZE != 64), NS16500A, SiFive_UART>::Result
-{
-private:
-    static const unsigned int UNIT = Traits<UART>::DEF_UNIT;
-    static const unsigned int BAUD_RATE = Traits<UART>::DEF_BAUD_RATE;
-    static const unsigned int DATA_BITS = Traits<UART>::DEF_DATA_BITS;
-    static const unsigned int PARITY = Traits<UART>::DEF_PARITY;
-    static const unsigned int STOP_BITS = Traits<UART>::DEF_STOP_BITS;
-
-    typedef IF<(Traits<Build>::MODEL == Traits<Build>::SiFive_U) && (Traits<CPU>::WORD_SIZE != 64), NS16500A, SiFive_UART>::Result Engine;
-
-public:
-    using UART_Common::NONE;
-    using UART_Common::EVEN;
-    using UART_Common::ODD;
-
-public:
-    UART(unsigned int unit = UNIT, unsigned int baud_rate = BAUD_RATE, unsigned int data_bits = DATA_BITS, unsigned int parity = PARITY, unsigned int stop_bits = STOP_BITS)
-    : Engine(unit, baud_rate, data_bits, parity, stop_bits) {}
-
-    using Engine::config;
-
-    char get() { while(!rxd_ok()); return rxd(); }
-    void put(char c) { while(!txd_ok()); txd(c); }
-
-    int read(char * data, unsigned int max_size) {
-        for(unsigned int i = 0; i < max_size; i++)
-            data[i] = get();
-        return 0;
-    }
-    int write(const char * data, unsigned int size) {
-        for(unsigned int i = 0; i < size; i++)
-            put(data[i]);
-        return 0;
-    }
-
-    bool ready_to_get() { return rxd_ok(); }
-    bool ready_to_put() { return txd_ok(); }
-
-    using Engine::int_enable;
-    using Engine::int_disable;
-    using Engine::flush;
-
-    void power(const Power_Mode & mode);
-};
+class OTP: private SiFive_OTP {}
 
 __END_SYS
 

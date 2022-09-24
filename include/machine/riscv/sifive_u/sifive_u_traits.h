@@ -79,29 +79,16 @@ template <> struct Traits<UART>: public Traits<Machine_Common>
     static const unsigned int DEF_STOP_BITS = 1;
 };
 
-template <> struct Traits<OTP>: public Traits<Machine_Common>
+template<> struct Traits<OTP>: public Traits<Machine_Common>
 {
     // Values from u-boot
-    // program pulse width delay
-    static const unsigned int TPW_DELAY	= 20;
-
-    // program pulse interval delay
-    static const unsigned int TPWI_DELAY = 5;
-
-    // program address setup delay
-    static const unsigned int TASP_DELAY = 1;
-
-    // read data access delay
-    static const unsigned int TCD_DELAY = 40;
-
-    // clock pulse low delay
-    static const unsigned int TKL_DELAY = 10;
-
-    ptm mode setup delay
-    static const unsigned int TMS_DELAY = 1;
+    static const unsigned int TPW_DELAY	= 20; // program pulse width delay
+    static const unsigned int TPWI_DELAY = 5; // program pulse interval delay
+    static const unsigned int TASP_DELAY = 1; // program address setup delay
+    static const unsigned int TCD_DELAY = 40; // read data access delay
+    static const unsigned int TKL_DELAY = 10; // clock pulse low delay
+    static const unsigned int TMS_DELAY = 1; // ptm mode setup delay
 };
-
-
 
 template<> struct Traits<Serial_Display>: public Traits<Machine_Common>
 {
