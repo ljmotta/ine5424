@@ -1,4 +1,4 @@
-// EPOS RISC-V OTP Mediator Declarations
+// EPOS Timer RISC-V OTP Mediator Declarations
 
 #ifndef __riscv_otp_h
 #define __riscv_otp_h
@@ -12,22 +12,13 @@
 #define EINVAL 22
 
 __BEGIN_SYS
-
-    // // write val into address
+    // write val into address
     // static void writel(unsigned int val, volatile unsigned int *addr) {
-    //     ASM("fence w, w" : : : "memory"); // wmb 
-    //     (*(volatile unsigned int *)(addr) = (val));
-    // 	// Reg tmp = (base & 0xfffffffc) | (Reg(mode) & 0x3);
-    //     // ASM("csrw mtvec, %0" : : "r"(tmp) : "cc");
+    //     ASM("fence w, w" : : : "memory"); // wmb
     // }
 
     // static Reg readl(void *addr) {
-    //     unsigned int val = (*(volatile unsigned int *)(addr));
-    //     ASM("fence r, r" : : : "memory"); // rmb 
-    //     return val;
-    //     // Reg value;
-    //     // ASM("csrr %0, mtvec" : "=r"(value) : : );
-    //     // return value;
+    //     ASM("fence r, r" : : : "memory"); // rmb
     // }
 
 class SiFive_OTP
@@ -94,8 +85,6 @@ public:
     int read(int offset, void *buf, int size) {
         /* Check if offset and size are multiple of BYTES_PER_FUSE */
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
-            // printf("%s: size and offset must be multiple of 4.\n",
-            //     __func__);
             return -EINVAL + 1;
         }
 
@@ -116,23 +105,17 @@ public:
         reg(SiFive_OTP::PDSTB) = PDSTB_DEEP_STANDBY_ENABLE;
         reg(SiFive_OTP::PTRIM) = PTRIM_ENABLE_INPUT;
         reg(SiFive_OTP::PCE) = PCE_ENABLE_INPUT;
-        // writel(PDSTB_DEEP_STANDBY_ENABLE, reg(SiFive_OTP::PDSTB));
-        // writel(PTRIM_ENABLE_INPUT, reg(SiFive_OTP::PTRIM));
-        // writel(PCE_ENABLE_INPUT, reg(SiFive_OTP::PCE));
 
         /* read all requested fuses */
         for (unsigned int i = 0; i < fusecount; i++, fuseidx++) {
             reg(SiFive_OTP::PA) = fuseidx;
-            // writel(fuseidx, &reg(SiFive_OTP::PA));
 
             /* cycle clock to read */
             reg(SiFive_OTP::PCLK) = PCLK_ENABLE_VAL;
-            // writel(PCLK_ENABLE_VAL, reg(SiFive_OTP::PCLK));
-            // EPOS
+            // EPOS Timer
             Delay tcd(TCD_DELAY);
             reg(SiFive_OTP::PCLK) = PCLK_DISABLE_VAL;
-            // writel(PCLK_DISABLE_VAL, reg(SiFive_OTP::PCLK));
-            // EPOS
+            // EPOS Timer
             Delay tkl(TKL_DELAY);
 
             /* read the value */
@@ -143,9 +126,6 @@ public:
         reg(SiFive_OTP::PCE) = PCE_DISABLE_INPUT;
         reg(SiFive_OTP::PTRIM) = PTRIM_DISABLE_INPUT;
         reg(SiFive_OTP::PDSTB) = PDSTB_DEEP_STANDBY_DISABLE;
-        // writel(PCE_DISABLE_INPUT, reg(SiFive_OTP::PCE));
-        // writel(PTRIM_DISABLE_INPUT, reg(SiFive_OTP::PTRIM));
-        // writel(PDSTB_DEEP_STANDBY_DISABLE, reg(SiFive_OTP::PDSTB));
 
         /* copy out */
         memcpy(buf, fusebuf, size);
@@ -156,8 +136,6 @@ public:
     int write(int offset, const void *buf, int size) {
         /* Check if offset and size are multiple of BYTES_PER_FUSE */
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
-            // printf("%s: size and offset must be multiple of 4.\n",
-            //    __func__);
             return -EINVAL;
         }
 
@@ -178,10 +156,6 @@ public:
         /* init OTP */
         reg(SiFive_OTP::PDSTB) = PDSTB_DEEP_STANDBY_ENABLE;
         reg(SiFive_OTP::PTRIM) = PTRIM_ENABLE_INPUT;
-        // writel(PDSTB_DEEP_STANDBY_ENABLE, reg(SiFive_OTP::PDSTB));
-        // writel(PTRIM_ENABLE_INPUT, reg(SiFive_OTP::PTRIM));
-
-
 
         /* reset registers */
         reg(SiFive_OTP::PCLK) = PCLK_DISABLE_VAL;
@@ -191,54 +165,39 @@ public:
         reg(SiFive_OTP::PDIN) = PDIN_RESET_VAL;
         reg(SiFive_OTP::PWE) = PWE_WRITE_DISABLE;
         reg(SiFive_OTP::PTM) = PTM_FUSE_PROGRAM_VAL;
-        // writel(PCLK_DISABLE_VAL, reg(SiFive_OTP::PCLK));
-        // writel(PA_RESET_VAL, reg(SiFive_OTP::PA));
-        // writel(PAS_RESET_VAL, reg(SiFive_OTP::PAS));
-        // writel(PAIO_RESET_VAL, reg(SiFive_OTP::PAIO));
-        // writel(PDIN_RESET_VAL, reg(SiFive_OTP::PDIN));
-        // writel(PWE_WRITE_DISABLE, reg(SiFive_OTP::PWE));
-        // writel(PTM_FUSE_PROGRAM_VAL, reg(SiFive_OTP::PTM));
-        // EPOS
+
+        // EPOS Timer
         Delay tms(TMS_DELAY);
 
         reg(SiFive_OTP::PCE) = PCE_ENABLE_INPUT;
         reg(SiFive_OTP::PPROG) = PPROG_ENABLE_INPUT;
-        // writel(PCE_ENABLE_INPUT, reg(SiFive_OTP::PCE));
-        // writel(PPROG_ENABLE_INPUT, reg(SiFive_OTP::PPROG));
 
         /* write all requested fuses */
         for (i = 0; i < fusecount; i++, fuseidx++) {
             reg(SiFive_OTP::PA) = fuseidx;
-            // writel(fuseidx, reg(SiFive_OTP::PA));
             write_data = *(write_buf++);
 
             for (pas = 0; pas < 2; pas++) {
                 reg(SiFive_OTP::PAS) = pas;
-                // writel(pas, reg(SiFive_OTP::PAS));
 
                 for (bit = 0; bit < 32; bit++) {
                     reg(SiFive_OTP::PAIO) = bit;
                     reg(SiFive_OTP::PDIN) = (write_data >> bit) & 1;
-                    // writel(bit, reg(SiFive_OTP::PAIO));
-                    // writel(((write_data >> bit) & 1), reg(SiFive_OTP::PDIN));
-                    // EPOS
+                    // EPOS Timer
                     Delay tasp(TASP_DELAY);
 
                     reg(SiFive_OTP::PWE) = PWE_WRITE_ENABLE;
-                    // writel(PWE_WRITE_ENABLE, reg(SiFive_OTP::PWE));
 
-                    // EPOS
+                    // EPOS Timer
                     Delay tpw(TPW_DELAY);
                     reg(SiFive_OTP::PWE) = PWE_WRITE_DISABLE;
-                    // writel(PWE_WRITE_DISABLE, reg(SiFive_OTP::PWE));
 
-                    // EPOS
+                    // EPOS Timer
                     Delay tpwi(TPWI_DELAY);
                 }
             }
 
             reg(SiFive_OTP::PAS) = PAS_RESET_VAL;
-            // writel(PAS_RESET_VAL, reg(SiFive_OTP::PAS));
         }
 
         /* shut down */
@@ -248,12 +207,6 @@ public:
         reg(SiFive_OTP::PTM) = PTM_RESET_VAL;
         reg(SiFive_OTP::PTRIM) = PTRIM_DISABLE_INPUT;
         reg(SiFive_OTP::PDSTB) = PDSTB_DEEP_STANDBY_DISABLE;
-        // writel(PWE_WRITE_DISABLE, reg(SiFive_OTP::PWE));
-        // writel(PPROG_DISABLE_INPUT, reg(SiFive_OTP::PPROG));
-        // writel(PCE_DISABLE_INPUT, reg(SiFive_OTP::PCE));
-        // writel(PTM_RESET_VAL, reg(SiFive_OTP::PTM));
-        // writel(PTRIM_DISABLE_INPUT, reg(SiFive_OTP::PTRIM));
-        // writel(PDSTB_DEEP_STANDBY_DISABLE, reg(SiFive_OTP::PDSTB));
 
         return size;
     }
