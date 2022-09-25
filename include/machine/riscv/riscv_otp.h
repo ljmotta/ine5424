@@ -55,7 +55,7 @@ public:
 
     enum : int {
         BYTES_PER_FUSE		        = 4, // 8 * 4
-        TOTAL_FUSES                 = 4096 // 16kB / 8
+        TOTAL_FUSES                 = 3840 // = 16kB -1kb / 4
     };
     
     enum {
@@ -82,14 +82,13 @@ public:
 public:
     SiFive_OTP() {}
 
-     // fusecount is the qtt of fuses.
-    int read(int offset, void *buf, unsigned int fusecount) {
+    int read(int offset, void *buf, int size) {
         /* Check if offset and size are multiple of BYTES_PER_FUSE */
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
             return -EINVAL + 1;
         }
 
-        unsigned int fuseidx = offset;
+        unsigned int fuseidx = offset / BYTES_PER_FUSE;
         unsigned int fusecount = size / BYTES_PER_FUSE;
 
         /* check bounds */
@@ -137,7 +136,7 @@ public:
     int write(int offset, const void *buf, int size) {
         /* Check if offset and size are multiple of BYTES_PER_FUSE */
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
-            return -EINVAL;
+            return -EINVAL + 1;
         }
 
         int fuseidx = offset / BYTES_PER_FUSE;
@@ -148,11 +147,11 @@ public:
 
         /* check bounds */
         if (offset < 0 || size < 0)
-            return -EINVAL;
+            return -EINVAL + 2;
         if (fuseidx >= TOTAL_FUSES)
-            return -EINVAL;
+            return -EINVAL + 3;
         if ((fuseidx + fusecount) > TOTAL_FUSES)
-            return -EINVAL;
+            return -EINVAL + 4;
 
         /* init OTP */
         reg(SiFive_OTP::PDSTB) = PDSTB_DEEP_STANDBY_ENABLE;
