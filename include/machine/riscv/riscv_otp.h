@@ -82,15 +82,14 @@ public:
 public:
     SiFive_OTP() {}
 
-    int read(int offset, void *buf, int size) {
+     // fusecount is the qtt of fuses.
+    int read(int offset, void *buf, unsigned int fusecount) {
         /* Check if offset and size are multiple of BYTES_PER_FUSE */
-        // 4 - 32bits por entrada
-        // size = quantas entradas vamos ler.
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
             return -EINVAL + 1;
         }
 
-        unsigned int fuseidx = offset / BYTES_PER_FUSE;
+        unsigned int fuseidx = offset;
         unsigned int fusecount = size / BYTES_PER_FUSE;
 
         /* check bounds */

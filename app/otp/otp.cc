@@ -6,7 +6,7 @@ using namespace EPOS;
 OStream cout;
 SiFive_OTP otp;
 const int BUF_SIZE = 1024;
-const int offset = 0x00;
+const int offset = 0x00; //0xf8 -> 252 foi para 190
 
 int main()
 {
