@@ -4,12 +4,14 @@
 using namespace EPOS;
 
 OStream cout;
+SiFive_OTP otp;
+const int BUF_SIZE = sizeof(int) * 8;
+
 
 int main()
 {
-    void *buf;
-    int size = sizeof(int) * 8;
-    int a = SiFive_OTP::read(0xfe, buf, size);
+    int buf[BUF_SIZE];
+    int a = otp.read(0xfe, &buf, BUF_SIZE);
     cout << "Hello world!" << a << endl;
 
     return 0;
