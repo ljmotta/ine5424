@@ -84,6 +84,8 @@ public:
 
     int read(int offset, void *buf, int size) {
         /* Check if offset and size are multiple of BYTES_PER_FUSE */
+        // 4 - 32bits por entrada
+        // size = quantas entradas vamos ler.
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
             return -EINVAL + 1;
         }
