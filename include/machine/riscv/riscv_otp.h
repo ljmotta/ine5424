@@ -62,11 +62,12 @@ public:
 	    PWE     = 0x38    /* Write enable input (defines program cycle) */
     };
 
-public:
-    enum {
+    enum : int {
         BYTES_PER_FUSE		        = 4, // 8 * 4
-        TOTAL_FUSES                 = 4096, // 16kB / 4
+        TOTAL_FUSES                 = 4096 // 16kB / 8
+    };
     
+    enum {
         PA_RESET_VAL		        = 0x00,
         PAS_RESET_VAL		        = 0x00,
         PAIO_RESET_VAL		        = 0x00,
@@ -85,7 +86,7 @@ public:
         PTRIM_DISABLE_INPUT		    = 0x00,
         PDSTB_DEEP_STANDBY_ENABLE	= 0x01,
         PDSTB_DEEP_STANDBY_DISABLE	= 0x00
-    }
+    };
 
 public:
     SiFive_OTP() {}
@@ -120,7 +121,7 @@ public:
         // writel(PCE_ENABLE_INPUT, reg(SiFive_OTP::PCE));
 
         /* read all requested fuses */
-        for (unsigned int i = 0; i < fusecount; i++, fuseidx++) {
+        for (int i = 0; i < fusecount; i++, fuseidx++) {
             reg(SiFive_OTP::PA) = fuseidx;
             // writel(fuseidx, &reg(SiFive_OTP::PA));
 
@@ -200,8 +201,10 @@ public:
         // EPOS
         Delay tms(TMS_DELAY);
 
-        writel(PCE_ENABLE_INPUT, reg(SiFive_OTP::PCE));
-        writel(PPROG_ENABLE_INPUT, reg(SiFive_OTP::PPROG));
+        reg(SiFive_OTP::PCE) = PCE_ENABLE_INPUT;
+        reg(SiFive_OTP::PPROG) = PPROG_ENABLE_INPUT;
+        // writel(PCE_ENABLE_INPUT, reg(SiFive_OTP::PCE));
+        // writel(PPROG_ENABLE_INPUT, reg(SiFive_OTP::PPROG));
 
         /* write all requested fuses */
         for (i = 0; i < fusecount; i++, fuseidx++) {
@@ -259,7 +262,7 @@ private:
     static volatile CPU::Reg32 & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg32 *>(Memory_Map::OTP_BASE)[o / sizeof(CPU::Reg32)]; }
 };
 
-class OTP: private OTP_Common, private SiFive_OTP {}
+class OTP: private OTP_Common, private SiFive_OTP {};
 
 __END_SYS
 
