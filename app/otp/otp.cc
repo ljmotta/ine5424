@@ -11,8 +11,16 @@ const int BUF_SIZE = sizeof(int) * 8;
 int main()
 {
     int buf[BUF_SIZE];
-    int a = otp.read(0xfe, &buf, BUF_SIZE);
-    cout << "Hello world!" << a << endl;
+    int a = otp.read(0xfc, &buf, BUF_SIZE);
+    cout << "size=" << a << endl;
+    cout << "buf=" << buf[0] << endl;
+    cout << "buf=" << buf[1] << endl;
+    cout << "buf=" << buf[2] << endl;
+    cout << "buf=" << buf[3] << endl;
+    cout << "buf=" << buf[4] << endl;
+    cout << "buf=" << buf[5] << endl;
+    cout << "buf=" << buf[6] << endl;
+    cout << "buf=" << buf[7] << endl;
 
     return 0;
 }

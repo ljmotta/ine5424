@@ -96,7 +96,7 @@ public:
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
             // printf("%s: size and offset must be multiple of 4.\n",
             //     __func__);
-            return -EINVAL;
+            return -EINVAL + 1;
         }
 
         int fuseidx = offset / BYTES_PER_FUSE;
@@ -104,11 +104,11 @@ public:
 
         /* check bounds */
         if (offset < 0 || size < 0)
-            return -EINVAL;
+            return -EINVAL + 2;
         if (fuseidx >= TOTAL_FUSES)
-            return -EINVAL;
+            return -EINVAL + 3;
         if ((fuseidx + fusecount) > TOTAL_FUSES)
-            return -EINVAL;
+            return -EINVAL + 4;
 
         unsigned int fusebuf[fusecount];
 
