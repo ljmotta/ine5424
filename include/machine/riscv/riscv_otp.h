@@ -99,8 +99,8 @@ public:
             return -EINVAL + 1;
         }
 
-        int fuseidx = offset / BYTES_PER_FUSE;
-        int fusecount = size / BYTES_PER_FUSE;
+        unsigned int fuseidx = offset / BYTES_PER_FUSE;
+        unsigned int fusecount = size / BYTES_PER_FUSE;
 
         /* check bounds */
         if (offset < 0 || size < 0)
@@ -121,7 +121,7 @@ public:
         // writel(PCE_ENABLE_INPUT, reg(SiFive_OTP::PCE));
 
         /* read all requested fuses */
-        for (int i = 0; i < fusecount; i++, fuseidx++) {
+        for (unsigned int i = 0; i < fusecount; i++, fuseidx++) {
             reg(SiFive_OTP::PA) = fuseidx;
             // writel(fuseidx, &reg(SiFive_OTP::PA));
 

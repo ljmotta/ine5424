@@ -10,8 +10,8 @@ const int BUF_SIZE = sizeof(int) * 8;
 
 int main()
 {
-    int buf[BUF_SIZE];
-    int a = otp.read(0xfc, &buf, BUF_SIZE);
+    unsigned int buf[BUF_SIZE];
+    int a = otp.read(0x00, &buf, BUF_SIZE);
     cout << "size=" << a << endl;
     cout << "buf=" << buf[0] << endl;
     cout << "buf=" << buf[1] << endl;
