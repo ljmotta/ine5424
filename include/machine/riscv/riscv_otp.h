@@ -12,14 +12,6 @@
 #define EINVAL 22
 
 __BEGIN_SYS
-    // write val into address
-    // static void writel(unsigned int val, volatile unsigned int *addr) {
-    //     ASM("fence w, w" : : : "memory"); // wmb
-    // }
-
-    // static Reg readl(void *addr) {
-    //     ASM("fence r, r" : : : "memory"); // rmb
-    // }
 
 class SiFive_OTP
 {
@@ -36,26 +28,27 @@ private:
 public:
     // OTP registers offset from OTP_Base
     enum {
-	    PA      = 0x00,     /* Address input */
-	    PAIO    = 0x04,   /* Program address input */
-	    PAS     = 0x08,    /* Program redundancy cell selection input */
-	    PCE     = 0x0C,    /* OTP Macro enable input */
-	    PCLK    = 0x10,   /* Clock input */
-	    PDIN    = 0x14,   /* Write data input */
-	    PDOUT   = 0x18,  /* Read data output */
-	    PDSTB   = 0x1C,  /* Deep standby mode enable input (active low) */
-	    PPROG   = 0x20,  /* Program mode enable input */
-	    PTC     = 0x24,    /* Test column enable input */
-	    PTM     = 0x28,    /* Test mode enable input */
-	    PTM_REP = 0x2C,/* Repair function test mode enable input */
-	    PTR     = 0x30,    /* Test row enable input */
-	    PTRIM   = 0x34,  /* Repair function enable input */
-	    PWE     = 0x38    /* Write enable input (defines program cycle) */
+	    PA      = 0x00, /* Address input */
+	    PAIO    = 0x04, /* Program address input */
+	    PAS     = 0x08, /* Program redundancy cell selection input */
+	    PCE     = 0x0C, /* OTP Macro enable input */
+	    PCLK    = 0x10, /* Clock input */
+	    PDIN    = 0x14, /* Write data input */
+	    PDOUT   = 0x18, /* Read data output */
+	    PDSTB   = 0x1C, /* Deep standby mode enable input (active low) */
+	    PPROG   = 0x20, /* Program mode enable input */
+	    PTC     = 0x24, /* Test column enable input */
+	    PTM     = 0x28, /* Test mode enable input */
+	    PTM_REP = 0x2C, /* Repair function test mode enable input */
+	    PTR     = 0x30, /* Test row enable input */
+	    PTRIM   = 0x34, /* Repair function enable input */
+	    PWE     = 0x38  /* Write enable input (defines program cycle) */
     };
 
+    // As described by the fu540 manual, the OTP memory is an 4096 x 32 bit array.
     enum : int {
-        BYTES_PER_FUSE		        = 4,
-        TOTAL_FUSES                 = 15360 // = 16kB -1kb
+        BYTES_PER_FUSE = 4,   // 32 bits
+        TOTAL_FUSES    = 4096 // total memory
     };
     
     enum {
@@ -82,7 +75,11 @@ public:
 public:
     SiFive_OTP() {}
 
-    // size biggest value = 3840
+    /// @brief read the otp data and copy to buf
+    /// @param offset in bits
+    /// @param buf pointer to a buffer
+    /// @param size in bits
+    /// @return if it succeds returns the size, if it fails an error code is returned
     int read(int offset, void *buf, int size) {
         /* Check if offset and size are multiple of BYTES_PER_FUSE */
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
@@ -134,6 +131,11 @@ public:
         return size;
     }
 
+    /// @brief writes to the otp memory
+    /// @param offset in bits
+    /// @param buf pointer to a buffer
+    /// @param size in bits
+    /// @return if it succeds returns the size, if it fails an error code is returned
     int write(int offset, const void *buf, int size) {
         /* Check if offset and size are multiple of BYTES_PER_FUSE */
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {

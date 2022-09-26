@@ -5,35 +5,31 @@ using namespace EPOS;
 
 OStream cout;
 SiFive_OTP otp;
-const int BUF_SIZE = 0x02; // /4 -> 
-const int offset = 0xfc; //0xf8 -> 252 foi para 190
+
+const int SIZE = 15360; // in bits
+const int OFFSET = 0xfc; // in bytes
+const int OFFSET_BITS = OFFSET * 4; // in bits
+const int BUF_SIZE = SIZE / 4; // int buffer, 4byts
 
 int main()
 {
     unsigned int write_buffer[BUF_SIZE];
     for(int i = 0; i < BUF_SIZE; i++) {
-        write_buffer[i] = 0;
+        write_buffer[i] = 0x0;// aribtrary data
     }
-    write_buffer[0] = 0xf;
-    write_buffer[1] = 0x2;
 
-    int b = otp.write(offset *4, &write_buffer, (BUF_SIZE) * 4);
+    int b = otp.write(OFFSET_BITS, &write_buffer, SIZE);
     cout << "write size=" << b << endl;
-    cout << hex << ", buf=" << write_buffer[0] << endl;
-    cout << hex << ", buf=" << write_buffer[1] << endl;
+    cout << hex << "write, buf=" << write_buffer[0] << endl;
+    cout << hex << "write, buf=" << write_buffer[1] << endl;
 
-    unsigned int read_buffer[BUF_SIZE]; // buffer de 4byts * buf_size
-    int c = otp.read(offset *4, &read_buffer, (BUF_SIZE) *4);
+    unsigned int read_buffer[BUF_SIZE];
+    int c = otp.read(OFFSET_BITS, &read_buffer, SIZE);
     cout << "read size=" << c << endl;
-    cout << hex << ", buf=" << read_buffer[0] << endl;
-    cout << hex << ", buf=" << read_buffer[1] << endl;
 
     for(int j = 0; j < BUF_SIZE; j++) {
-        cout << ", index= " << hex << offset + j << ", buf=" << read_buffer[j] << endl;
+        cout << ", index= " << hex << OFFSET + j << ", buf=" << read_buffer[j] << endl;
     }
-    cout << hex << ", buf=" << read_buffer[BUF_SIZE -1] << endl;
-    cout << hex << ", buf=" << read_buffer[BUF_SIZE -2] << endl;
-
 
     return 0;
 }
