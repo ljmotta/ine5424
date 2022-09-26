@@ -31,7 +31,7 @@ private:
     static const unsigned int TASP_DELAY = Traits<OTP>::TASP_DELAY;
     static const unsigned int TCD_DELAY = Traits<OTP>::TCD_DELAY;
     static const unsigned int TKL_DELAY = Traits<OTP>::TKL_DELAY;
-    static const unsigned int TMS_DELAY = Traits<OTP>:: TMS_DELAY;
+    static const unsigned int TMS_DELAY = Traits<OTP>::TMS_DELAY;
 
 public:
     // OTP registers offset from OTP_Base
@@ -82,6 +82,7 @@ public:
 public:
     SiFive_OTP() {}
 
+    // size biggest value = 3840
     int read(int offset, void *buf, int size) {
         /* Check if offset and size are multiple of BYTES_PER_FUSE */
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
