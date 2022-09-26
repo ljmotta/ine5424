@@ -54,8 +54,8 @@ public:
     };
 
     enum : int {
-        BYTES_PER_FUSE		        = 4, // 8 * 4
-        TOTAL_FUSES                 = 3840 // = 16kB -1kb / 4
+        BYTES_PER_FUSE		        = 4,
+        TOTAL_FUSES                 = 15360 // = 16kB -1kb
     };
     
     enum {
