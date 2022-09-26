@@ -4,7 +4,7 @@
 using namespace EPOS;
 
 OStream cout;
-SiFive_OTP otp;
+OTP otp;
 
 const int WRITE_OFFSET = 0;
 const int WRITE_OFFSET_BITS = WRITE_OFFSET * 4;

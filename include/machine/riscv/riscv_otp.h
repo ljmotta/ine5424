@@ -13,21 +13,17 @@
 
 __BEGIN_SYS
 
-class SiFive_OTP
+class OTP
 {
 private:
     typedef CPU::Reg32 Reg32;
 
-    static const unsigned int TPW_DELAY = Traits<OTP>::TPW_DELAY;
-    static const unsigned int TPWI_DELAY = Traits<OTP>::TPWI_DELAY;
-    static const unsigned int TASP_DELAY = Traits<OTP>::TASP_DELAY;
-    static const unsigned int TCD_DELAY = Traits<OTP>::TCD_DELAY;
-    static const unsigned int TKL_DELAY = Traits<OTP>::TKL_DELAY;
-    static const unsigned int TMS_DELAY = Traits<OTP>::TMS_DELAY;
+    static const int BYTES_PER_FUSE = Traits<OTP>::BYTES_PER_FUSE;
+    static const int TOTAL_FUSES = Traits<OTP>::TOTAL_FUSES;
 
 public:
-    // OTP registers offset from OTP_Base
-    enum {
+    // RISC-V OTP registers offset from OTP_Base
+    enum RegOTP {
 	    PA      = 0x00, /* Address input */
 	    PAIO    = 0x04, /* Program address input */
 	    PAS     = 0x08, /* Program redundancy cell selection input */
@@ -45,35 +41,46 @@ public:
 	    PWE     = 0x38  /* Write enable input (defines program cycle) */
     };
 
-    // As described by the fu540 manual, the OTP memory is an 4096 x 32 bit array.
-    enum : int {
-        BYTES_PER_FUSE = 4,   // 32 bits
-        TOTAL_FUSES    = 4096 // total memory
+    enum : unsigned int {
+        TPW_DELAY  = 20, // program pulse width delay
+        TPWI_DELAY = 5,  // program pulse interval delay
+        TASP_DELAY = 1,  // program address setup delay
+        TCD_DELAY  = 40, // read data access delay
+        TKL_DELAY  = 10, // clock pulse low delay
+        TMS_DELAY  = 1   // ptm mode setup delay
     };
     
+    // helper values
     enum {
         PA_RESET_VAL		        = 0x00,
         PAS_RESET_VAL		        = 0x00,
         PAIO_RESET_VAL		        = 0x00,
         PDIN_RESET_VAL		        = 0x00,
         PTM_RESET_VAL		        = 0x00,
+
         PCLK_ENABLE_VAL			    = 0x01,
         PCLK_DISABLE_VAL		    = 0x00,
+
         PWE_WRITE_ENABLE		    = 0x01,
         PWE_WRITE_DISABLE		    = 0x00,
+
         PTM_FUSE_PROGRAM_VAL	    = 0x10,
+
         PCE_ENABLE_INPUT		    = 0x01,
         PCE_DISABLE_INPUT		    = 0x00,
+
         PPROG_ENABLE_INPUT		    = 0x01,
         PPROG_DISABLE_INPUT		    = 0x00,
+
         PTRIM_ENABLE_INPUT		    = 0x01,
         PTRIM_DISABLE_INPUT		    = 0x00,
+
         PDSTB_DEEP_STANDBY_ENABLE	= 0x01,
         PDSTB_DEEP_STANDBY_DISABLE	= 0x00
     };
 
 public:
-    SiFive_OTP() {}
+    OTP() {}
 
     /// @brief read the otp data and copy to buf
     /// @param offset in bits
@@ -100,30 +107,31 @@ public:
         unsigned int fusebuf[fusecount];
 
         /* init OTP */
-        reg(SiFive_OTP::PDSTB) = PDSTB_DEEP_STANDBY_ENABLE;
-        reg(SiFive_OTP::PTRIM) = PTRIM_ENABLE_INPUT;
-        reg(SiFive_OTP::PCE) = PCE_ENABLE_INPUT;
+        reg(RegOTP::PDSTB) = PDSTB_DEEP_STANDBY_ENABLE;
+        reg(RegOTP::PTRIM) = PTRIM_ENABLE_INPUT;
+        reg(RegOTP::PCE) = PCE_ENABLE_INPUT;
 
         /* read all requested fuses */
         for (unsigned int i = 0; i < fusecount; i++, fuseidx++) {
-            reg(SiFive_OTP::PA) = fuseidx;
+            reg(RegOTP::PA) = fuseidx;
 
             /* cycle clock to read */
-            reg(SiFive_OTP::PCLK) = PCLK_ENABLE_VAL;
-            // EPOS Timer
-            Delay tcd(TCD_DELAY);
-            reg(SiFive_OTP::PCLK) = PCLK_DISABLE_VAL;
-            // EPOS Timer
-            Delay tkl(TKL_DELAY);
+            reg(RegOTP::PCLK) = PCLK_ENABLE_VAL;
+
+            Delay tcd(TCD_DELAY); // 40us
+
+            reg(RegOTP::PCLK) = PCLK_DISABLE_VAL;
+
+            Delay tkl(TKL_DELAY); // 10us
 
             /* read the value */
-            fusebuf[i] = reg(SiFive_OTP::PDOUT);
+            fusebuf[i] = reg(RegOTP::PDOUT);
         }
 
         /* shut down */
-        reg(SiFive_OTP::PCE) = PCE_DISABLE_INPUT;
-        reg(SiFive_OTP::PTRIM) = PTRIM_DISABLE_INPUT;
-        reg(SiFive_OTP::PDSTB) = PDSTB_DEEP_STANDBY_DISABLE;
+        reg(RegOTP::PCE) = PCE_DISABLE_INPUT;
+        reg(RegOTP::PTRIM) = PTRIM_DISABLE_INPUT;
+        reg(RegOTP::PDSTB) = PDSTB_DEEP_STANDBY_DISABLE;
 
         /* copy out */
         memcpy(buf, fusebuf, size);
@@ -157,59 +165,58 @@ public:
             return -EINVAL + 4;
 
         /* init OTP */
-        reg(SiFive_OTP::PDSTB) = PDSTB_DEEP_STANDBY_ENABLE;
-        reg(SiFive_OTP::PTRIM) = PTRIM_ENABLE_INPUT;
+        reg(RegOTP::PDSTB) = PDSTB_DEEP_STANDBY_ENABLE;
+        reg(RegOTP::PTRIM) = PTRIM_ENABLE_INPUT;
 
         /* reset registers */
-        reg(SiFive_OTP::PCLK) = PCLK_DISABLE_VAL;
-        reg(SiFive_OTP::PA) = PA_RESET_VAL;
-        reg(SiFive_OTP::PAS) = PAS_RESET_VAL;
-        reg(SiFive_OTP::PAIO) = PAIO_RESET_VAL;
-        reg(SiFive_OTP::PDIN) = PDIN_RESET_VAL;
-        reg(SiFive_OTP::PWE) = PWE_WRITE_DISABLE;
-        reg(SiFive_OTP::PTM) = PTM_FUSE_PROGRAM_VAL;
+        reg(RegOTP::PCLK) = PCLK_DISABLE_VAL;
+        reg(RegOTP::PA) = PA_RESET_VAL;
+        reg(RegOTP::PAS) = PAS_RESET_VAL;
+        reg(RegOTP::PAIO) = PAIO_RESET_VAL;
+        reg(RegOTP::PDIN) = PDIN_RESET_VAL;
+        reg(RegOTP::PWE) = PWE_WRITE_DISABLE;
+        reg(RegOTP::PTM) = PTM_FUSE_PROGRAM_VAL;
 
         // EPOS Timer
         Delay tms(TMS_DELAY);
 
-        reg(SiFive_OTP::PCE) = PCE_ENABLE_INPUT;
-        reg(SiFive_OTP::PPROG) = PPROG_ENABLE_INPUT;
+        reg(RegOTP::PCE) = PCE_ENABLE_INPUT;
+        reg(RegOTP::PPROG) = PPROG_ENABLE_INPUT;
 
         /* write all requested fuses */
         for (i = 0; i < fusecount; i++, fuseidx++) {
-            reg(SiFive_OTP::PA) = fuseidx;
+            reg(RegOTP::PA) = fuseidx;
             write_data = *(write_buf++);
 
             for (pas = 0; pas < 2; pas++) {
-                reg(SiFive_OTP::PAS) = pas;
+                reg(RegOTP::PAS) = pas;
 
                 for (bit = 0; bit < 32; bit++) {
-                    reg(SiFive_OTP::PAIO) = bit;
-                    reg(SiFive_OTP::PDIN) = (write_data >> bit) & 1;
-                    // EPOS Timer
-                    Delay tasp(TASP_DELAY);
+                    reg(RegOTP::PAIO) = bit;
+                    reg(RegOTP::PDIN) = (write_data >> bit) & 1;
 
-                    reg(SiFive_OTP::PWE) = PWE_WRITE_ENABLE;
+                    Delay tasp(TASP_DELAY); // 1u
 
-                    // EPOS Timer
-                    Delay tpw(TPW_DELAY);
-                    reg(SiFive_OTP::PWE) = PWE_WRITE_DISABLE;
+                    reg(RegOTP::PWE) = PWE_WRITE_ENABLE;
 
-                    // EPOS Timer
-                    Delay tpwi(TPWI_DELAY);
+                    Delay tpw(TPW_DELAY); // 20us
+
+                    reg(RegOTP::PWE) = PWE_WRITE_DISABLE;
+
+                    Delay tpwi(TPWI_DELAY); // 5u
                 }
             }
 
-            reg(SiFive_OTP::PAS) = PAS_RESET_VAL;
+            reg(RegOTP::PAS) = PAS_RESET_VAL;
         }
 
         /* shut down */
-        reg(SiFive_OTP::PWE) = PWE_WRITE_DISABLE;
-        reg(SiFive_OTP::PPROG) = PPROG_DISABLE_INPUT;
-        reg(SiFive_OTP::PCE) = PCE_DISABLE_INPUT;
-        reg(SiFive_OTP::PTM) = PTM_RESET_VAL;
-        reg(SiFive_OTP::PTRIM) = PTRIM_DISABLE_INPUT;
-        reg(SiFive_OTP::PDSTB) = PDSTB_DEEP_STANDBY_DISABLE;
+        reg(RegOTP::PWE) = PWE_WRITE_DISABLE;
+        reg(RegOTP::PPROG) = PPROG_DISABLE_INPUT;
+        reg(RegOTP::PCE) = PCE_DISABLE_INPUT;
+        reg(RegOTP::PTM) = PTM_RESET_VAL;
+        reg(RegOTP::PTRIM) = PTRIM_DISABLE_INPUT;
+        reg(RegOTP::PDSTB) = PDSTB_DEEP_STANDBY_DISABLE;
 
         return size;
     }
@@ -217,8 +224,6 @@ public:
 private:
     static volatile CPU::Reg32 & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg32 *>(Memory_Map::OTP_BASE)[o / sizeof(CPU::Reg32)]; }
 };
-
-class OTP: private OTP_Common, private SiFive_OTP {};
 
 __END_SYS
 

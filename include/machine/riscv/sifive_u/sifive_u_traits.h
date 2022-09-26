@@ -81,13 +81,9 @@ template <> struct Traits<UART>: public Traits<Machine_Common>
 
 template<> struct Traits<OTP>: public Traits<Machine_Common>
 {
-    // Values from u-boot
-    static const unsigned int TPW_DELAY	= 20; // program pulse width delay
-    static const unsigned int TPWI_DELAY = 5; // program pulse interval delay
-    static const unsigned int TASP_DELAY = 1; // program address setup delay
-    static const unsigned int TCD_DELAY = 40; // read data access delay
-    static const unsigned int TKL_DELAY = 10; // clock pulse low delay
-    static const unsigned int TMS_DELAY = 1; // ptm mode setup delay
+    // As described by the fu540 manual, the OTP memory is an 4096 x 32 bit array.
+    static const int TOTAL_FUSES = 4096;
+    static const int BYTES_PER_FUSE = 4;
 };
 
 template<> struct Traits<Serial_Display>: public Traits<Machine_Common>
