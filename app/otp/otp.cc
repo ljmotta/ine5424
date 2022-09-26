@@ -6,29 +6,44 @@ using namespace EPOS;
 OStream cout;
 SiFive_OTP otp;
 
-const int SIZE = 15360; // in bits
-const int OFFSET = 0xfc; // in bytes
-const int OFFSET_BITS = OFFSET * 4; // in bits
-const int BUF_SIZE = SIZE / 4; // int buffer, 4byts
+const int WRITE_OFFSET = 0;
+const int WRITE_OFFSET_BITS = WRITE_OFFSET * 4;
+const int WRITE_SIZE_BITS = 0;
+const int WRITE_SIZE_BUFFER = WRITE_SIZE_BITS / 4;
+
+const int READ_OFFSET = 0xfc; // serial position
+const int READ_OFFSET_BITS = READ_OFFSET * 4;
+const int READ_SIZE_BITS = 15360; // all useful memory
+const int READ_SIZE_BUFFER = READ_SIZE_BITS / 4;
 
 int main()
 {
-    unsigned int write_buffer[BUF_SIZE];
-    for(int i = 0; i < BUF_SIZE; i++) {
-        write_buffer[i] = 0x0;// aribtrary data
+    // create write buffer
+    unsigned int write_buffer[WRITE_SIZE_BUFFER];
+    for(int i = 0; i < WRITE_SIZE_BUFFER; i++) {
+        write_buffer[i] = 0x4; // aribtrary data
     }
 
-    int b = otp.write(OFFSET_BITS, &write_buffer, SIZE);
-    cout << "write size=" << b << endl;
-    cout << hex << "write, buf=" << write_buffer[0] << endl;
-    cout << hex << "write, buf=" << write_buffer[1] << endl;
+    // write in otp memory
+    int write_code = otp.write(WRITE_OFFSET_BITS, &write_buffer, WRITE_SIZE_BITS);
+    if (write_code < 0) {
+        cout << "write error, code = " << write_code << endl;
+    } else {
+        cout << hex << "write, buf=" << write_buffer[0] << endl;
+        cout << hex << "write, buf=" << write_buffer[1] << endl;
+    }
 
-    unsigned int read_buffer[BUF_SIZE];
-    int c = otp.read(OFFSET_BITS, &read_buffer, SIZE);
-    cout << "read size=" << c << endl;
+    // create read buffer
+    unsigned int read_buffer[READ_SIZE_BUFFER];
 
-    for(int j = 0; j < BUF_SIZE; j++) {
-        cout << ", index= " << hex << OFFSET + j << ", buf=" << read_buffer[j] << endl;
+    // read otp memory
+    int read_code = otp.read(READ_OFFSET_BITS, &read_buffer, READ_SIZE_BITS);
+    if (read_code < 0) {
+        cout << "read error, code = " << read_code << endl;
+    } else {
+        for(int j = 0; j < READ_SIZE_BUFFER; j++) {
+            cout << "read, index= " << hex << READ_OFFSET + j << ", buf=" << read_buffer[j] << endl;
+        }
     }
 
     return 0;
