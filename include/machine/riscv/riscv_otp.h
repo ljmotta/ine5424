@@ -18,6 +18,7 @@ class OTP
 private:
     typedef CPU::Reg32 Reg32;
 
+    volatile unsigned int * _otp_base = (volatile unsigned int *)Memory_Map::OTP_BASE;
     static const int BYTES_PER_FUSE = Traits<OTP>::BYTES_PER_FUSE;
     static const int TOTAL_FUSES = Traits<OTP>::TOTAL_FUSES;
 
@@ -107,31 +108,31 @@ public:
         unsigned int fusebuf[fusecount];
 
         /* init OTP */
-        reg(RegOTP::PDSTB) = PDSTB_DEEP_STANDBY_ENABLE;
-        reg(RegOTP::PTRIM) = PTRIM_ENABLE_INPUT;
-        reg(RegOTP::PCE) = PCE_ENABLE_INPUT;
+        writel(RegOTP::PDSTB, PDSTB_DEEP_STANDBY_ENABLE);
+        writel(RegOTP::PTRIM, PTRIM_ENABLE_INPUT);
+        writel(RegOTP::PCE, PCE_ENABLE_INPUT);
 
         /* read all requested fuses */
         for (unsigned int i = 0; i < fusecount; i++, fuseidx++) {
-            reg(RegOTP::PA) = fuseidx;
+            writel(RegOTP::PA, fuseidx);
 
             /* cycle clock to read */
-            reg(RegOTP::PCLK) = PCLK_ENABLE_VAL;
+            writel(RegOTP::PCLK, PCLK_ENABLE_VAL);
 
             Delay tcd(TCD_DELAY); // 40us
 
-            reg(RegOTP::PCLK) = PCLK_DISABLE_VAL;
+            writel(RegOTP::PCLK, PCLK_DISABLE_VAL);
 
             Delay tkl(TKL_DELAY); // 10us
 
             /* read the value */
-            fusebuf[i] = reg(RegOTP::PDOUT);
+            fusebuf[i] = readl(RegOTP::PDOUT);
         }
 
         /* shut down */
-        reg(RegOTP::PCE) = PCE_DISABLE_INPUT;
-        reg(RegOTP::PTRIM) = PTRIM_DISABLE_INPUT;
-        reg(RegOTP::PDSTB) = PDSTB_DEEP_STANDBY_DISABLE;
+        writel(RegOTP::PCE, PCE_DISABLE_INPUT);
+        writel(RegOTP::PTRIM, PTRIM_DISABLE_INPUT);
+        writel(RegOTP::PDSTB, PDSTB_DEEP_STANDBY_DISABLE);
 
         /* copy out */
         memcpy(buf, fusebuf, size);
@@ -165,64 +166,90 @@ public:
             return -EINVAL + 4;
 
         /* init OTP */
-        reg(RegOTP::PDSTB) = PDSTB_DEEP_STANDBY_ENABLE;
-        reg(RegOTP::PTRIM) = PTRIM_ENABLE_INPUT;
+        writel(RegOTP::PDSTB, PDSTB_DEEP_STANDBY_ENABLE);
+        writel(RegOTP::PTRIM, PTRIM_ENABLE_INPUT);
 
         /* reset registers */
-        reg(RegOTP::PCLK) = PCLK_DISABLE_VAL;
-        reg(RegOTP::PA) = PA_RESET_VAL;
-        reg(RegOTP::PAS) = PAS_RESET_VAL;
-        reg(RegOTP::PAIO) = PAIO_RESET_VAL;
-        reg(RegOTP::PDIN) = PDIN_RESET_VAL;
-        reg(RegOTP::PWE) = PWE_WRITE_DISABLE;
-        reg(RegOTP::PTM) = PTM_FUSE_PROGRAM_VAL;
+        writel(RegOTP::PCLK, PCLK_DISABLE_VAL);
+        writel(RegOTP::PA, PA_RESET_VAL);
+        writel(RegOTP::PAS, PAS_RESET_VAL);
+        writel(RegOTP::PAIO, PAIO_RESET_VAL);
+        writel(RegOTP::PDIN, PDIN_RESET_VAL);
+        writel(RegOTP::PWE, PWE_WRITE_DISABLE);
+        writel(RegOTP::PTM, PTM_FUSE_PROGRAM_VAL);
 
         // EPOS Timer
-        Delay tms(TMS_DELAY);
+        Delay tms(TMS_DELAY); // 1 us
 
-        reg(RegOTP::PCE) = PCE_ENABLE_INPUT;
-        reg(RegOTP::PPROG) = PPROG_ENABLE_INPUT;
+        writel(RegOTP::PCE, PCE_ENABLE_INPUT);
+        writel(RegOTP::PPROG, PPROG_ENABLE_INPUT);
 
         /* write all requested fuses */
         for (i = 0; i < fusecount; i++, fuseidx++) {
-            reg(RegOTP::PA) = fuseidx;
+            writel(RegOTP::PA, fuseidx);
             write_data = *(write_buf++);
 
             for (pas = 0; pas < 2; pas++) {
-                reg(RegOTP::PAS) = pas;
+                writel(RegOTP::PAS, pas);
 
                 for (bit = 0; bit < 32; bit++) {
-                    reg(RegOTP::PAIO) = bit;
-                    reg(RegOTP::PDIN) = (write_data >> bit) & 1;
+                    writel(RegOTP::PAIO, bit);
+                    unsigned int value = (write_data >> bit) & 1;
+                    writel(RegOTP::PDIN, value);
 
                     Delay tasp(TASP_DELAY); // 1u
 
-                    reg(RegOTP::PWE) = PWE_WRITE_ENABLE;
+                    writel(RegOTP::PWE, PWE_WRITE_ENABLE);
 
                     Delay tpw(TPW_DELAY); // 20us
 
-                    reg(RegOTP::PWE) = PWE_WRITE_DISABLE;
+                    writel(RegOTP::PWE, PWE_WRITE_DISABLE);
 
                     Delay tpwi(TPWI_DELAY); // 5u
                 }
             }
 
-            reg(RegOTP::PAS) = PAS_RESET_VAL;
+            writel(RegOTP::PAS, PAS_RESET_VAL);
         }
 
         /* shut down */
-        reg(RegOTP::PWE) = PWE_WRITE_DISABLE;
-        reg(RegOTP::PPROG) = PPROG_DISABLE_INPUT;
-        reg(RegOTP::PCE) = PCE_DISABLE_INPUT;
-        reg(RegOTP::PTM) = PTM_RESET_VAL;
-        reg(RegOTP::PTRIM) = PTRIM_DISABLE_INPUT;
-        reg(RegOTP::PDSTB) = PDSTB_DEEP_STANDBY_DISABLE;
+        writel(RegOTP::PWE, PWE_WRITE_DISABLE);
+        writel(RegOTP::PPROG, PPROG_DISABLE_INPUT);
+        writel(RegOTP::PCE, PCE_DISABLE_INPUT);
+        writel(RegOTP::PTM, PTM_RESET_VAL);
+        writel(RegOTP::PTRIM, PTRIM_DISABLE_INPUT);
+        writel(RegOTP::PDSTB, PDSTB_DEEP_STANDBY_DISABLE);
 
+        // memset2(&_otp_base, 0x1, sizeof(int) * TOTAL_FUSES);
         return size;
     }
 
 private:
     static volatile CPU::Reg32 & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg32 *>(Memory_Map::OTP_BASE)[o / sizeof(CPU::Reg32)]; }
+
+    // write val into address
+    static void writel(unsigned int addr, int val) {
+        ASM("fence ow, ow" : : : "memory"); // wmb
+        reg(addr) = val;
+    }
+
+    static volatile CPU::Reg32 readl(unsigned int addr) {
+        ASM("fence ir, ir" : : : "memory"); // rmb
+        return reg(addr);
+    }
+
+
+//     static inline void *memset2(void *s, int c, size_t n)
+// {
+//     size_t i;
+//     unsigned char *p = reinterpret_cast<unsigned char *>(s);
+
+//     for (i = 0; i < n; i++) {
+//         p[i] = c;
+//     }
+
+//     return s;
+// }
 };
 
 __END_SYS
