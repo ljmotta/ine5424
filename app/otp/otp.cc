@@ -21,7 +21,7 @@ int main()
     // create write buffer
     unsigned int write_buffer[WRITE_FUSES_BUFFER];
     for(int i = 0; i < WRITE_FUSES_BUFFER; i++) {
-        write_buffer[i] = 0x0; // arbtrary data
+        write_buffer[i] = 0x12; // arbtrary data
     }
 
     // write in otp memory

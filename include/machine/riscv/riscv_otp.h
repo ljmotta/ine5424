@@ -228,17 +228,12 @@ private:
     static volatile CPU::Reg32 & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg32 *>(Memory_Map::OTP_BASE)[o / sizeof(CPU::Reg32)]; }
 
     static void write_reg(unsigned int addr, int val) {
-        // it's only necessary if application is using more than one hart?
-        if (Traits<Build>::CPUS > 1) {
-            ASM("fence w, w" : : : "memory"); // wmb
-        }
+        ASM("fence w, w" : : : "memory");
         reg(addr) = val;
     }
 
     static volatile CPU::Reg32 read_reg(unsigned int addr) {
-        if (Traits<Build>::CPUS > 1) {
-            ASM("fence r, r" : : : "memory"); // rmb
-        }
+        ASM("fence r, r" : : : "memory");
         return reg(addr);
     }
 };
