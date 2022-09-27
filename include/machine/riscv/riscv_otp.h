@@ -18,7 +18,6 @@ class OTP
 private:
     typedef CPU::Reg32 Reg32;
 
-    volatile unsigned int * _otp_base = (volatile unsigned int *)Memory_Map::OTP_BASE;
     static const int BYTES_PER_FUSE = Traits<OTP>::BYTES_PER_FUSE;
     static const int TOTAL_FUSES = Traits<OTP>::TOTAL_FUSES;
 
@@ -222,7 +221,6 @@ public:
         write_reg(RegOTP::PTRIM, PTRIM_DISABLE_INPUT);
         write_reg(RegOTP::PDSTB, PDSTB_DEEP_STANDBY_DISABLE);
 
-        // memset2(&_otp_base, 0x1, sizeof(int) * TOTAL_FUSES);
         return size;
     }
 
@@ -243,19 +241,6 @@ private:
         }
         return reg(addr);
     }
-
-
-//     static inline void *memset2(void *s, int c, size_t n)
-// {
-//     size_t i;
-//     unsigned char *p = reinterpret_cast<unsigned char *>(s);
-
-//     for (i = 0; i < n; i++) {
-//         p[i] = c;
-//     }
-
-//     return s;
-// }
 };
 
 __END_SYS
