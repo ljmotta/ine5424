@@ -35,8 +35,6 @@ public:
         TIMER_BASE      = 0x02004000,   // CLINT Timer
         PLIIC_CPU_BASE  = 0x0c000000,   // SiFive PLIC
         PRCI_BASE       = emulated ? NOT_USED : 0x10000000,   // SiFive-U Power, Reset, Clock, Interrupt
-        QSPI0_BASE      = emulated ? NOT_USED : 0x10040000,
-        QSPI2_BASE      = emulated ? NOT_USED : 0x10050000,
         GPIO_BASE       = emulated ? NOT_USED : 0x10060000,   // SiFive-U GPIO
         OTP_BASE        = emulated ? NOT_USED : 0x10070000,   // SiFive-U OTP
         ETH_BASE        = emulated ? NOT_USED : 0x10090000,   // SiFive-U Ethernet
