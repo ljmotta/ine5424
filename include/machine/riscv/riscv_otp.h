@@ -7,7 +7,7 @@
 #include <machine/otp.h>
 #include <system/memory_map.h>
 #include <utility/string.h>
-#include <time.h>
+// #include <time.h>
 
 #define EINVAL 22
 
@@ -86,36 +86,37 @@ public:
     /// @param offset in bits
     /// @param buf pointer to a buffer
     /// @param size in bits
-    /// @return if it succeds returns the size, if it fails an error code is returned
+    /// @return if it succeds returns 0, if it fails return EINVAL
     int read(int offset, void *buf, int size) {
-        /* Check if offset and size are multiple of BYTES_PER_FUSE */
+        db<OTP>(TRC) << "OTP::read(offset=" << offset << ", size=" << size << ")" << endl;
+        // check if offset and size are multiple of BYTES_PER_FUSE
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
-            return -EINVAL + 1;
+            return EINVAL;
         }
 
         unsigned int fuse_idx = offset / BYTES_PER_FUSE;
         unsigned int fuse_count = size / BYTES_PER_FUSE;
 
-        /* check bounds */
+        // check bounds
         if (offset < 0 || size < 0)
-            return -EINVAL + 2;
+            return EINVAL;
         if (fuse_idx >= TOTAL_FUSES)
-            return -EINVAL + 3;
+            return EINVAL;
         if ((fuse_idx + fuse_count) > TOTAL_FUSES)
-            return -EINVAL + 4;
+            return EINVAL;
 
         unsigned int fuse_buf[fuse_count];
 
-        /* init OTP */
+        // enable read registers
         write_reg(RegOTP::PDSTB, PDSTB_DEEP_STANDBY_ENABLE);
         write_reg(RegOTP::PTRIM, PTRIM_ENABLE_INPUT);
         write_reg(RegOTP::PCE, PCE_ENABLE_INPUT);
 
-        /* read all requested fuses */
+        // read all requested fuses
         for (unsigned int i = 0; i < fuse_count; i++, fuse_idx++) {
             write_reg(RegOTP::PA, fuse_idx);
 
-            /* cycle clock to read */
+            // clock is not required in qemu, add an if LIBRAY?
             write_reg(RegOTP::PCLK, PCLK_ENABLE_VAL);
 
             // Delay tcd(TCD_DELAY); // 40us
@@ -124,51 +125,51 @@ public:
 
             // Delay tkl(TKL_DELAY); // 10us
 
-            /* read the value */
             fuse_buf[i] = read_reg(RegOTP::PDOUT);
         }
+        db<OTP>(WRN) << "Read finished" << endl;
 
-        /* shut down */
+        // disable read registers
         write_reg(RegOTP::PCE, PCE_DISABLE_INPUT);
         write_reg(RegOTP::PTRIM, PTRIM_DISABLE_INPUT);
         write_reg(RegOTP::PDSTB, PDSTB_DEEP_STANDBY_DISABLE);
 
-        /* copy out */
+        // copy to buffer
         memcpy(buf, fuse_buf, size);
 
-        return size;
+        return 0;
     }
 
     /// @brief writes to the otp memory
     /// @param offset in bits
     /// @param buf pointer to a buffer
     /// @param size in bits
-    /// @return if it succeds returns the size, if it fails an error code is returned
+    /// @return if it succeds returns the 0, if it fails returns EINVAL
     int write(int offset, const void *buf, int size) {
-        /* Check if offset and size are multiple of BYTES_PER_FUSE */
+        db<OTP>(TRC) << "OTP::write(offset=" << offset << ", size=" << size << ")" << endl;
+        // check if offset and size are multiple of BYTES_PER_FUSE
         if ((size % BYTES_PER_FUSE) || (offset % BYTES_PER_FUSE)) {
-            return -EINVAL + 1;
+            return EINVAL;
         }
 
-        int fuse_idx = offset / BYTES_PER_FUSE;
-        int fuse_count = size / BYTES_PER_FUSE;
+        unsigned int fuse_idx = offset / BYTES_PER_FUSE;
+        unsigned int fuse_count = size / BYTES_PER_FUSE;
         unsigned int *write_buf = (unsigned int *)buf;
         unsigned int write_data;
-        int i, pas, bit;
 
-        /* check bounds */
+        // check bounds
         if (offset < 0 || size < 0)
-            return -EINVAL + 2;
+            return EINVAL;
         if (fuse_idx >= TOTAL_FUSES)
-            return -EINVAL + 3;
+            return EINVAL;
         if ((fuse_idx + fuse_count) > TOTAL_FUSES)
-            return -EINVAL + 4;
+            return EINVAL;
 
-        /* init OTP */
+        // init OTP
         write_reg(RegOTP::PDSTB, PDSTB_DEEP_STANDBY_ENABLE);
         write_reg(RegOTP::PTRIM, PTRIM_ENABLE_INPUT);
 
-        /* reset registers */
+        // reset registers
         write_reg(RegOTP::PCLK, PCLK_DISABLE_VAL);
         write_reg(RegOTP::PA, PA_RESET_VAL);
         write_reg(RegOTP::PAS, PAS_RESET_VAL);
@@ -177,40 +178,40 @@ public:
         write_reg(RegOTP::PWE, PWE_WRITE_DISABLE);
         write_reg(RegOTP::PTM, PTM_FUSE_PROGRAM_VAL);
 
-        // EPOS Timer
-        Delay tms(TMS_DELAY); // 1 us
+        // Delay tms(TMS_DELAY); // 1 us
 
+        // init OTP write regs
         write_reg(RegOTP::PCE, PCE_ENABLE_INPUT);
         write_reg(RegOTP::PPROG, PPROG_ENABLE_INPUT);
 
-        /* write all requested fuses */
-        for (i = 0; i < fuse_count; i++, fuse_idx++) {
+        // write all requested fuses
+        for (unsigned int i = 0; i < fuse_count; i++, fuse_idx++) {
             write_reg(RegOTP::PA, fuse_idx);
             write_data = *(write_buf++);
 
-            // PAS 0,1
-            for (pas = 0; pas < 2; pas++) {
+            for (int pas = 0; pas < 2; pas++) {
                 write_reg(RegOTP::PAS, pas);
 
-                // write all bits.
-                for (bit = 0; bit < 32; bit++) {
+                for (int bit = 0; bit < 32; bit++) {
                     write_reg(RegOTP::PAIO, bit);
                     write_reg(RegOTP::PDIN, (write_data >> bit) & 1);
 
-                    Delay tasp(TASP_DELAY); // 1u
+                    // clock is not required in qemu, add an if LIBRAY?
+                    // Delay tasp(TASP_DELAY); // 1u
 
                     write_reg(RegOTP::PWE, PWE_WRITE_ENABLE);
 
-                    Delay tpw(TPW_DELAY); // 20us
+                    // Delay tpw(TPW_DELAY); // 20us
 
                     write_reg(RegOTP::PWE, PWE_WRITE_DISABLE);
 
-                    Delay tpwi(TPWI_DELAY); // 5u
+                    // Delay tpwi(TPWI_DELAY); // 5u
                 }
             }
 
             write_reg(RegOTP::PAS, PAS_RESET_VAL);
         }
+        db<OTP>(WRN) << "Write finished" << endl;
 
         /* shut down */
         write_reg(RegOTP::PWE, PWE_WRITE_DISABLE);
@@ -220,19 +221,23 @@ public:
         write_reg(RegOTP::PTRIM, PTRIM_DISABLE_INPUT);
         write_reg(RegOTP::PDSTB, PDSTB_DEEP_STANDBY_DISABLE);
 
-        return size;
+        return 0;
     }
 
 private:
     static volatile CPU::Reg32 & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg32 *>(Memory_Map::OTP_BASE)[o / sizeof(CPU::Reg32)]; }
 
     static void write_reg(unsigned int addr, int val) {
-        ASM("fence w, w" : : : "memory");
+        if (Traits<Build>::CPUS > 1) {
+            ASM("fence w, w" : : : "memory");
+        }
         reg(addr) = val;
     }
 
     static volatile CPU::Reg32 read_reg(unsigned int addr) {
-        ASM("fence r, r" : : : "memory");
+        if (Traits<Build>::CPUS > 1) {
+            ASM("fence r, r" : : : "memory");
+        }
         return reg(addr);
     }
 };

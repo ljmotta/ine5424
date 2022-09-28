@@ -26,7 +26,7 @@ int main()
 
     // write in otp memory
     int write_code = otp.write(WRITE_OFFSET_BYTES, &write_buffer, WRITE_SIZE_BYTES);
-    if (write_code < 0) {
+    if (write_code > 0) {
         cout << "write error, code = " << write_code << endl;
     }
 
@@ -35,7 +35,7 @@ int main()
 
     // read otp memory
     int read_code = otp.read(READ_OFFSET_BYTES, &read_buffer, READ_SIZE_BYTES);
-    if (read_code < 0) {
+    if (read_code > 0) {
         cout << "read error, code = " << read_code << endl;
     } else {
         for(int j = 0; j < READ_FUSES_BUFFER; j++) {
@@ -43,7 +43,7 @@ int main()
         }
     }
 
-    cout << "\n\n write again with higher offset (+4) \n\n" << endl;
+    cout << "\n\nwrite again with higher offset (+4) \n\n" << endl;
 
     // try to write in the same place
     for(int i = 0; i < WRITE_FUSES_BUFFER; i++) {
@@ -52,7 +52,7 @@ int main()
 
     // write in otp memory
     int write_again_code = otp.write(WRITE_OFFSET_BYTES + 4, &write_buffer, WRITE_SIZE_BYTES);
-    if (write_again_code < 0) {
+    if (write_again_code > 0) {
         cout << "write again error, code = " << write_again_code << endl;
     }
 
@@ -62,7 +62,7 @@ int main()
     }
     // read otp memory
     int read_again_code = otp.read(READ_OFFSET_BYTES, &read_buffer, READ_SIZE_BYTES);
-    if (read_again_code < 0) {
+    if (read_again_code > 0) {
         cout << "read again error, code = " << read_again_code << endl;
     } else {
         for(int j = 0; j < READ_FUSES_BUFFER; j++) {
