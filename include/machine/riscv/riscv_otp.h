@@ -52,31 +52,31 @@ public:
     
     // helper values
     enum {
-        PA_RESET_VAL		        = 0x00,
-        PAS_RESET_VAL		        = 0x00,
-        PAIO_RESET_VAL		        = 0x00,
-        PDIN_RESET_VAL		        = 0x00,
-        PTM_RESET_VAL		        = 0x00,
+        PA_RESET_VAL                = 0x00,
+        PAS_RESET_VAL               = 0x00,
+        PAIO_RESET_VAL              = 0x00,
+        PDIN_RESET_VAL              = 0x00,
+        PTM_RESET_VAL               = 0x00,
 
-        PCLK_ENABLE_VAL			    = 0x01,
-        PCLK_DISABLE_VAL		    = 0x00,
+        PCLK_ENABLE_VAL             = 0x01,
+        PCLK_DISABLE_VAL            = 0x00,
 
-        PWE_WRITE_ENABLE		    = 0x01,
-        PWE_WRITE_DISABLE		    = 0x00,
+        PWE_WRITE_ENABLE            = 0x01,
+        PWE_WRITE_DISABLE           = 0x00,
 
-        PTM_FUSE_PROGRAM_VAL	    = 0x10,
+        PTM_FUSE_PROGRAM_VAL        = 0x10,
 
-        PCE_ENABLE_INPUT		    = 0x01,
-        PCE_DISABLE_INPUT		    = 0x00,
+        PCE_ENABLE_INPUT            = 0x01,
+        PCE_DISABLE_INPUT           = 0x00,
 
-        PPROG_ENABLE_INPUT		    = 0x01,
-        PPROG_DISABLE_INPUT		    = 0x00,
+        PPROG_ENABLE_INPUT          = 0x01,
+        PPROG_DISABLE_INPUT         = 0x00,
 
-        PTRIM_ENABLE_INPUT		    = 0x01,
-        PTRIM_DISABLE_INPUT		    = 0x00,
+        PTRIM_ENABLE_INPUT          = 0x01,
+        PTRIM_DISABLE_INPUT         = 0x00,
 
-        PDSTB_DEEP_STANDBY_ENABLE	= 0x01,
-        PDSTB_DEEP_STANDBY_DISABLE	= 0x00
+        PDSTB_DEEP_STANDBY_ENABLE   = 0x01,
+        PDSTB_DEEP_STANDBY_DISABLE  = 0x00
     };
 
 public:
