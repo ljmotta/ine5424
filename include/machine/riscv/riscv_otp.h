@@ -118,11 +118,11 @@ public:
             /* cycle clock to read */
             write_reg(RegOTP::PCLK, PCLK_ENABLE_VAL);
 
-            Delay tcd(TCD_DELAY); // 40us
+            // Delay tcd(TCD_DELAY); // 40us
 
             write_reg(RegOTP::PCLK, PCLK_DISABLE_VAL);
 
-            Delay tkl(TKL_DELAY); // 10us
+            // Delay tkl(TKL_DELAY); // 10us
 
             /* read the value */
             fuse_buf[i] = read_reg(RegOTP::PDOUT);
@@ -195,8 +195,7 @@ public:
                 // write all bits.
                 for (bit = 0; bit < 32; bit++) {
                     write_reg(RegOTP::PAIO, bit);
-                    unsigned int value = (write_data >> bit) & 1;
-                    write_reg(RegOTP::PDIN, value);
+                    write_reg(RegOTP::PDIN, (write_data >> bit) & 1);
 
                     Delay tasp(TASP_DELAY); // 1u
 
