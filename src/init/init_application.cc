@@ -20,8 +20,13 @@ public:
         db<Init>(TRC) << "Init_Application()" << endl;
 
         // Initialize Application's heap
-        db<Init>(INF) << "Initializing application's heap:" << endl;
-        Application::_heap = new (&Application::_preheap[0]) Heap(MMU::alloc(MMU::pages(HEAP_SIZE)), HEAP_SIZE);
+        db<Init>(INF) << "Initializing application's heap: " << endl;
+        if(Traits<System>::multiheap) { // heap in data segment arranged by SETUP
+            char * heap = (MMU::align_page(&_end) >= CPU::Log_Addr(Memory_Map::APP_DATA)) ? MMU::align_page(&_end) : CPU::Log_Addr(Memory_Map::APP_DATA); // ld is eliminating the data segment in some compilations, particularly for RISC-V, and placing _end in the code segment
+            Application::_heap = new (&Application::_preheap[0]) Heap(heap, HEAP_SIZE);
+        } else
+            for(unsigned int frames = MMU::allocable(); frames; frames = MMU::allocable())
+                System::_heap->free(MMU::alloc(frames), frames * sizeof(MMU::Page));
     }
 };
 
