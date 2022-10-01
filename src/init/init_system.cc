@@ -24,16 +24,38 @@ public:
 
         db<Init>(INF) << "Initializing system's heap: " << endl;
         if(Traits<System>::multiheap) {
+            // Segment retona um pedaço físico de memoria, que foi alocado pela MMU (é alocado dentro da classe Segment)
             System::_heap_segment = new (&System::_preheap[0]) Segment(HEAP_SIZE, Segment::Flags::SYS);
             char * heap;
-            if(Memory_Map::SYS_HEAP == Traits<Machine>::NOT_USED)
+
+            // Acessa os métodos do address_space(não cria um novo) a partir da tabela de paginas primaria MMU::current. 
+            // O setup que pega o registrador que está apontando para a tabela de paginas
+            // Atacha o segmento no lugar de _heap_segment
+            if(Memory_Map::SYS_HEAP == Traits<Machine>::NOT_USED) {
                 heap = Address_Space(MMU::current()).attach(System::_heap_segment);
-            else
+            }
+            else {
+                // Aloca um segmento no local do SYS_HEAP (endereço lógico)
+                // há a possibilidade de retornar um void pointer,
+                // mas isso não acontece porque é a primeira coisa a ser feita
                 heap = Address_Space(MMU::current()).attach(System::_heap_segment, Memory_Map::SYS_HEAP);
-            if(!heap)
+            }
+            if(!heap) {
                 db<Init>(ERR) << "Failed to initialize the system's heap!" << endl;
+            }
+            // aloca a _heap no offset de um Segment
+
+            System::_heap_segment = new (&System::_preheap[0]) Segment(HEAP_SIZE, Segment::Flags::SYS);
             System::_heap = new (&System::_preheap[sizeof(Segment)]) Heap(heap, System::_heap_segment->size());
+
+
+            
         } else
+            // Caso só tenha uma heap de sistema
+            // utiliza o espaço da preheap para criar uma heap
+            // MMU::pages recebe o tamanho e retorna a quantidade de bytes
+            // para NO_MMU, o tamanho da página é de 1 byte
+            // MMU::aloc retorna um ponteiro físico, só funciona porque está usando o NO_MMU
             System::_heap = new (&System::_preheap[0]) Heap(MMU::alloc(MMU::pages(HEAP_SIZE)), HEAP_SIZE);
 
         db<Init>(INF) << "Initializing the machine: " << endl;

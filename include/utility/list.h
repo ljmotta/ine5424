@@ -1317,8 +1317,7 @@ template<typename T,
 class Multihead_Scheduling_Multilist: public Scheduling_Multilist<T, R, El, Multihead_Scheduling_List<T, R, El, H>, Q> {};
 
 // Doubly-Linked, Grouping List
-template<typename T,
-          typename El = List_Elements::Doubly_Linked_Grouping<T> >
+template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
 class Grouping_List: public List<T, El>
 {
 private:
@@ -1347,9 +1346,16 @@ public:
     unsigned int grouped_size() const { return _grouped_size; }
 
     Element * search_size(unsigned int s) {
-        Element * e = head();
-        if(sizeof(Object_Type) < sizeof(Element))
-            for(; e && (e->size() < sizeof(Element) / sizeof(Object_Type) + s) && (e->size() != s); e = e->next());
+        Element * e = head(); // { return _head; }
+        // Object_Type = char
+        // Element = List_Elements::Doubly_Linked_Grouping<char>
+        int a = sizeof(Element);
+        if (sizeof(Object_Type) < a) {
+            // se o elemento existe &&
+            // se o tamanho do elemento for menor que o tamanho de um elemento de lista + qtt bytes pedido (a divisao nao importa char = 1) &&
+            // se o tamanho for diferente da quantidade de bytes pedido
+            for(; e && (e->size() < a / sizeof(Object_Type) + s) && (e->size() != s); e = e->next());
+        }
         else
             for(; e && (e->size() < s); e = e->next());
         return e;
@@ -1376,14 +1382,33 @@ public:
         }
     }
 
+    // s = bytes
     Element * search_decrementing(unsigned int s) {
         db<Lists>(TRC) << "Grouping_List::search_decrementing(s=" << s << ")" << endl;
         print_head();
         print_tail();
 
+
         Element * e = search_size(s);
         if(e) {
-            e->shrink(s);
+            e->shrink(s); // void shrink(unsigned int s) { _size = _size - s; }
+            _grouped_size -= s;
+            if(!e->size())
+                remove(e);
+        }
+
+        return e;
+    }
+
+    Element * search_decrementing_bottom_up(unsigned int s) {
+        db<Lists>(TRC) << "Grouping_List::search_decrementing(s=" << s << ")" << endl;
+        print_head();
+        print_tail();
+
+
+        Element * e = search_size(s);
+        if(e) {
+            e->shrink(s); // void shrink(unsigned int s) { _size = _size - s; }
             _grouped_size -= s;
             if(!e->size())
                 remove(e);

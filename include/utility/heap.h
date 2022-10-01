@@ -30,6 +30,7 @@ public:
         free(addr, bytes);
     }
 
+    // top down?
     void * alloc(unsigned int bytes) {
         db<Heaps>(TRC) << "Heap::alloc(this=" << this << ",bytes=" << bytes;
 
@@ -40,12 +41,13 @@ public:
             while((bytes % sizeof(void *)))
                 ++bytes;
 
-        if(typed)
+        if(typed) // multiheap? sys && app
             bytes += sizeof(void *);  // add room for heap pointer
         bytes += sizeof(long);        // add room for size
         if(bytes < sizeof(Element))
             bytes = sizeof(Element);
 
+        // decrementa da lista um elemento com tamanho de bytes
         Element * e = search_decrementing(bytes);
         if(!e) {
             out_of_memory(bytes);
