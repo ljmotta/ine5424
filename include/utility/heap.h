@@ -46,13 +46,17 @@ public:
         if(bytes < sizeof(Element))
             bytes = sizeof(Element);
 
-        Element * e = search_decrementing(bytes);
+        Element * e = search_decrementing_bottom_up(bytes);
         if(!e) {
             out_of_memory(bytes);
             return 0;
         }
 
-        long * addr = reinterpret_cast<long *>(e->object() + e->size());
+        // e->object is the address of the element that was shrank
+        // e->size is the size of the element.
+        // the new allocated bytes are in the end of the element.
+        // changing to e->object() to be bottom-up
+        long * addr = reinterpret_cast<long *>(e->object());
 
         if(typed)
             *addr++ = reinterpret_cast<long>(this);

@@ -1347,10 +1347,15 @@ public:
     unsigned int grouped_size() const { return _grouped_size; }
 
     Element * search_size(unsigned int s) {
+        // inicio da lista
         Element * e = head();
+        // Object_Type menor que um elemento de linkagem
         if(sizeof(Object_Type) < sizeof(Element))
+            // se o tamanho do elemento for menor que (element de linkagem / object_type) + bytes
+            // e se o tamanho do elemento for diferente de bytes
+            // verifica prox elemento
             for(; e && (e->size() < sizeof(Element) / sizeof(Object_Type) + s) && (e->size() != s); e = e->next());
-        else
+        else // alocacao de elemento de tamanho igual ou maior que um elemento de linkagem
             for(; e && (e->size() < s); e = e->next());
         return e;
     }
@@ -1385,6 +1390,24 @@ public:
         if(e) {
             e->shrink(s);
             _grouped_size -= s;
+            if(!e->size())
+                remove(e);
+        }
+
+        return e;
+    }
+
+    Element * search_decrementing_bottom_up(unsigned int s) {
+        db<Lists>(TRC) << "Grouping_List::search_decrementing(s=" << s << ")" << endl;
+        print_head();
+        print_tail();
+
+        // returns a element that has at least the size s
+        Element * e = search_size(s);
+        if(e) {
+            e->shrink(s); // { _size = _size - n; }
+            _grouped_size = _grouped_size - s;
+            // if size = 0, remove element?
             if(!e->size())
                 remove(e);
         }
