@@ -75,7 +75,12 @@ public:
 
         if(ptr && (bytes >= sizeof(Element))) {
             // place the link info in the end of the element
-            char * elementInfo = reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
+            char * elementInfo;
+            if (Traits<System>::HEAP_STRATEGY == Traits_Tokens::Heap_Strategy::BOTTOM_UP) {
+                elementInfo = reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
+            } else  {
+                elementInfo = reinterpret_cast<char *>(ptr);
+            }
             Element * e = new (elementInfo) Element(reinterpret_cast<char *>(ptr), bytes);
             Element * m1, * m2;
             insert_merging(e, &m1, &m2);
