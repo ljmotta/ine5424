@@ -37,17 +37,18 @@ public:
         if(!bytes)
             return 0;
 
+        // alinha
         if(!Traits<CPU>::unaligned_memory_access)
             while((bytes % sizeof(void *)))
                 ++bytes;
 
-        if(typed) // multiheap? sys && app
+        if(typed) // multiheap? sys & app
             bytes += sizeof(void *);  // add room for heap pointer
         bytes += sizeof(long);        // add room for size
         if(bytes < sizeof(Element))
             bytes = sizeof(Element);
 
-        // decrementa da lista um elemento com tamanho de bytes
+        // retorna um elemento da lista que tenha a quantidade de bytes
         Element * e = search_decrementing(bytes);
         if(!e) {
             out_of_memory(bytes);
@@ -76,14 +77,14 @@ public:
     }
 
     static void typed_free(void * ptr) {
-        int * addr = reinterpret_cast<int *>(ptr);
+        long * addr = reinterpret_cast<long *>(ptr);
         unsigned int bytes = *--addr;
         Heap * heap = reinterpret_cast<Heap *>(*--addr);
         heap->free(addr, bytes);
     }
 
     static void untyped_free(Heap * heap, void * ptr) {
-        int * addr = reinterpret_cast<int *>(ptr);
+        long * addr = reinterpret_cast<long *>(ptr);
         unsigned int bytes = *--addr;
         heap->free(addr, bytes);
     }

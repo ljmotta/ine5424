@@ -44,12 +44,7 @@ public:
                 db<Init>(ERR) << "Failed to initialize the system's heap!" << endl;
             }
             // aloca a _heap no offset de um Segment
-
-            System::_heap_segment = new (&System::_preheap[0]) Segment(HEAP_SIZE, Segment::Flags::SYS);
             System::_heap = new (&System::_preheap[sizeof(Segment)]) Heap(heap, System::_heap_segment->size());
-
-
-            
         } else
             // Caso só tenha uma heap de sistema
             // utiliza o espaço da preheap para criar uma heap

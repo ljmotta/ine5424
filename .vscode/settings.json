@@ -4,6 +4,11 @@
         "*.sw.yaml": "yaml",
         "*.sw.yml": "yaml",
         "algorithm": "cpp",
-        "ios": "cpp"
+        "ios": "cpp",
+        "atomic": "cpp",
+        "functional": "cpp",
+        "locale": "cpp",
+        "memory": "cpp",
+        "optional": "cpp"
     }
 }

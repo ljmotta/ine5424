@@ -1346,15 +1346,18 @@ public:
     unsigned int grouped_size() const { return _grouped_size; }
 
     Element * search_size(unsigned int s) {
+        // pega o elemento que é o inicio da lista.
         Element * e = head(); // { return _head; }
         // Object_Type = char
         // Element = List_Elements::Doubly_Linked_Grouping<char>
-        int a = sizeof(Element);
-        if (sizeof(Object_Type) < a) {
+
+        // se char é menor que um elemento de linkagem
+        if (sizeof(Object_Type) < sizeof(Element)) {
             // se o elemento existe &&
-            // se o tamanho do elemento for menor que o tamanho de um elemento de lista + qtt bytes pedido (a divisao nao importa char = 1) &&
+            // se o tamanho do elemento for menor que o tamanho de um elemento de lista + qtt bytes &&
             // se o tamanho for diferente da quantidade de bytes pedido
-            for(; e && (e->size() < a / sizeof(Object_Type) + s) && (e->size() != s); e = e->next());
+            // avança
+            for(; e && (e->size() < sizeof(Element) / sizeof(Object_Type) + s) && (e->size() != s); e = e->next());
         }
         else
             for(; e && (e->size() < s); e = e->next());
@@ -1389,8 +1392,11 @@ public:
         print_tail();
 
 
+        // procura um elemento que tenha o tamanho e.
+        // no começo é a propria heap
         Element * e = search_size(s);
         if(e) {
+            // diminui o tamanho da heap com s
             e->shrink(s); // void shrink(unsigned int s) { _size = _size - s; }
             _grouped_size -= s;
             if(!e->size())
@@ -1405,10 +1411,24 @@ public:
         print_head();
         print_tail();
 
-
+        // retorna o elemento que tem tamanho s
         Element * e = search_size(s);
         if(e) {
-            e->shrink(s); // void shrink(unsigned int s) { _size = _size - s; }
+            // heap      -> [    e    ]
+
+            // atual
+            // alloc(s)  -> [   e   ][]
+    
+            // desejado
+            // alloc( )  -> [][   e   ]
+
+            
+            // [e][      ]
+            e->shrink(e->size() - s);
+            
+
+
+
             _grouped_size -= s;
             if(!e->size())
                 remove(e);
