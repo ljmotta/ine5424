@@ -244,6 +244,7 @@ namespace List_Elements
         Doubly_Linked_Grouping(const T * o, int s): _object(o), _size(s), _prev(0), _next(0) {}
 
         T * object() const { return const_cast<T *>(_object); }
+        void object(const T * object) { _object = object; }
 
         Element * prev() const { return _prev; }
         Element * next() const { return _next; }
@@ -1402,12 +1403,19 @@ public:
         print_head();
         print_tail();
 
-        // returns a element that has at least the size s
         Element * e = search_size(s);
         if(e) {
-            e->shrink(s); // { _size = _size - n; }
-            _grouped_size = _grouped_size - s;
-            // if size = 0, remove element?
+            // actual
+            // [      ]
+            // [    ][]
+            
+            // desired
+            // [      ]
+            // [][    ]
+            // change pointer of object to object pointer + bytes
+            e->object(e->object() + s);
+            e->shrink(s);
+            _grouped_size -= s;
             if(!e->size())
                 remove(e);
         }

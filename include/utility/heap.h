@@ -55,9 +55,8 @@ public:
         // e->object is the address of the element that was shrank
         // e->size is the size of the element.
         // the new allocated bytes are in the end of the element.
-        // changing to e->object() to be bottom-up
-        long * addr = reinterpret_cast<long *>(e->object());
-
+        // changing to e->object() - bytes to be bottom-up
+        long *addr = reinterpret_cast<long *>(e->object() - bytes);
         if(typed)
             *addr++ = reinterpret_cast<long>(this);
         *addr++ = bytes;
@@ -71,7 +70,9 @@ public:
         db<Heaps>(TRC) << "Heap::free(this=" << this << ",ptr=" << ptr << ",bytes=" << bytes << ")" << endl;
 
         if(ptr && (bytes >= sizeof(Element))) {
-            Element * e = new (ptr) Element(reinterpret_cast<char *>(ptr), bytes);
+            // the addres is the end of the block (ptr + bytes) - location to create a Element (sizeof(Element))
+            char * location = reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
+            Element * e = new (location) Element(reinterpret_cast<char *>(ptr), bytes);
             Element * m1, * m2;
             insert_merging(e, &m1, &m2);
         }
