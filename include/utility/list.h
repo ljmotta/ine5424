@@ -241,7 +241,7 @@ namespace List_Elements
         typedef Doubly_Linked_Grouping Element;
 
     public:
-        Doubly_Linked_Grouping(const T * o, int s): _object(o), _size(s), _prev(0), _next(0) {}
+        Doubly_Linked_Grouping(const T * o, unsigned long s): _object(o), _size(s), _prev(0), _next(0) {}
 
         T * object() const { return const_cast<T *>(_object); }
         void object(const T * object) { _object = object; }
@@ -251,14 +251,14 @@ namespace List_Elements
         void prev(Element * e) { _prev = e; }
         void next(Element * e) { _next = e; }
 
-        unsigned int size() const { return _size; }
-        void size(unsigned int l) { _size = l; }
-        void shrink(unsigned int n) { _size -= n; }
-        void expand(unsigned int n) { _size += n; }
+        unsigned long size() const { return _size; }
+        void size(unsigned long l) { _size = l; }
+        void shrink(unsigned long n) { _size -= n; }
+        void expand(unsigned long n) { _size += n; }
 
     private:
         const T * _object;
-        unsigned int _size;
+        unsigned long _size;
         Element * _prev;
         Element * _next;
     };
@@ -1318,8 +1318,7 @@ template<typename T,
 class Multihead_Scheduling_Multilist: public Scheduling_Multilist<T, R, El, Multihead_Scheduling_List<T, R, El, H>, Q> {};
 
 // Doubly-Linked, Grouping List
-template<typename T,
-          typename El = List_Elements::Doubly_Linked_Grouping<T> >
+template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
 class Grouping_List: public List<T, El>
 {
 private:
@@ -1346,9 +1345,9 @@ public:
     using Base::print_head;
     using Base::print_tail;
 
-    unsigned int grouped_size() const { return _grouped_size; }
+    unsigned long grouped_size() const { return _grouped_size; }
 
-    Element * search_size(unsigned int s) {
+    Element * search_size(unsigned long s) {
         Element * e = head();
         if(sizeof(Object_Type) < sizeof(Element))
             for(; e && (e->size() < sizeof(Element) / sizeof(Object_Type) + s) && (e->size() != s); e = e->next());
@@ -1364,6 +1363,7 @@ public:
         *m1 = *m2 = 0;
         Element * r = search(e->object() + e->size());
         Element * l = search_left(e->object());
+
         if(!l) {
             insert_tail(e);
         }
@@ -1399,7 +1399,7 @@ public:
         }
     }
 
-    Element * search_decrementing(unsigned int s) {
+    Element * search_decrementing(unsigned long s) {
         db<Lists>(TRC) << "Grouping_List::search_decrementing(s=" << s << ")" << endl;
         print_head();
         print_tail();
@@ -1415,7 +1415,7 @@ public:
         return e;
     }
 
-    Element * search_decrementing_bottom_up(unsigned int s) {
+    Element * search_decrementing_bottom_up(unsigned long s) {
         db<Lists>(TRC) << "Grouping_List::search_decrementing_bottom_up(s=" << s << ")" << endl;
         print_head();
         print_tail();
@@ -1448,7 +1448,7 @@ private:
     }
 
 private:
-    unsigned int _grouped_size;
+    unsigned long _grouped_size;
 };
 
 __END_UTIL
