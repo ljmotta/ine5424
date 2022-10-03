@@ -1348,15 +1348,10 @@ public:
     unsigned int grouped_size() const { return _grouped_size; }
 
     Element * search_size(unsigned int s) {
-        // inicio da lista
         Element * e = head();
-        // Object_Type menor que um elemento de linkagem
         if(sizeof(Object_Type) < sizeof(Element))
-            // se o tamanho do elemento for menor que (element de linkagem / object_type) + bytes
-            // e se o tamanho do elemento for diferente de bytes
-            // verifica prox elemento
             for(; e && (e->size() < sizeof(Element) / sizeof(Object_Type) + s) && (e->size() != s); e = e->next());
-        else // alocacao de elemento de tamanho igual ou maior que um elemento de linkagem
+        else
             for(; e && (e->size() < s); e = e->next());
         return e;
     }
@@ -1399,7 +1394,7 @@ public:
     }
 
     Element * search_decrementing_bottom_up(unsigned int s) {
-        db<Lists>(TRC) << "Grouping_List::search_decrementing(s=" << s << ")" << endl;
+        db<Lists>(TRC) << "Grouping_List::search_decrementing_bottom_up(s=" << s << ")" << endl;
         print_head();
         print_tail();
 
