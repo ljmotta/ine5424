@@ -46,7 +46,7 @@ public:
         if(bytes < sizeof(Element))
             bytes = sizeof(Element);
 
-        Element * e = search_decrementing_bottom_up(bytes);
+        Element * e = search_decrementing(bytes);
         if(!e) {
             out_of_memory(bytes);
             return 0;
@@ -55,7 +55,12 @@ public:
         // e->object is the address of the element that was shrank (heap)
         // the new allocated bytes are in the end of the element.
         // changing to (e->object() - bytes) to be bottom-up
-        long *addr = reinterpret_cast<long *>(e->object() - bytes);
+        long *addr;
+        if (Traits<System>::HEAP_STRATEGY == Traits_Tokens::Heap_Strategy::BOTTOM_UP) {
+            addr = reinterpret_cast<long *>(e->object() - bytes);
+        } else  {
+            addr = reinterpret_cast<long *>(e->object() + e->size());
+        }
         if(typed)
             *addr++ = reinterpret_cast<long>(this);
         *addr++ = bytes;
@@ -73,7 +78,7 @@ public:
             char * elementInfo = reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
             Element * e = new (elementInfo) Element(reinterpret_cast<char *>(ptr), bytes);
             Element * m1, * m2;
-            insert_merging_bottom_up(e, &m1, &m2);
+            insert_merging(e, &m1, &m2);
         }
     }
 

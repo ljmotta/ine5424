@@ -1347,6 +1347,7 @@ public:
 
     unsigned long grouped_size() const { return _grouped_size; }
 
+protected:
     Element * search_size(unsigned long s) {
         Element * e = head();
         if(sizeof(Object_Type) < sizeof(Element))
@@ -1356,22 +1357,29 @@ public:
         return e;
     }
 
-private:
     Element * search_left(const Object_Type * obj) {
         Element * e = head();
         for(; e && (e->object() + e->size() != obj); e = e->next());
         return e;
     }
 
-private:
+protected:
     unsigned long _grouped_size;
 };
 
 template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
 class Grouping_List_Top_Down: public Grouping_List<T, El>
 {
+private:
+    typedef Grouping_List<T, El> Base;
+
 public:
-    Grouping_List_Top_Down(): Grouping_List() {}
+    typedef T Object_Type;
+    typedef El Element;
+    typedef List_Iterators::Bidirecional<El> Iterator;
+
+public:
+    Grouping_List_Top_Down() {}
 
     using Base::size;
     using Base::insert_tail;
@@ -1379,7 +1387,9 @@ public:
     using Base::search;
     using Base::print_head;
     using Base::print_tail;
-
+    using Base::_grouped_size;
+    using Base::search_size;
+    using Base::search_left;
 
     void insert_merging(Element * e, Element ** m1, Element ** m2) {
         db<Lists>(TRC) << "Grouping_List_Top_Down::insert_merging(e=" << e << ")" << endl;
@@ -1423,8 +1433,16 @@ public:
 template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
 class Grouping_List_Bottom_Up: public Grouping_List<T, El>
 {
+private:
+    typedef Grouping_List<T, El> Base;
+
 public:
-    Grouping_List_Bottom_Up(): Grouping_List() {}
+    typedef T Object_Type;
+    typedef El Element;
+    typedef List_Iterators::Bidirecional<El> Iterator;
+
+public:
+    Grouping_List_Bottom_Up() {}
 
     using Base::size;
     using Base::insert_head;
@@ -1432,6 +1450,9 @@ public:
     using Base::search;
     using Base::print_head;
     using Base::print_tail;
+    using Base::_grouped_size;
+    using Base::search_size;
+    using Base::search_left;
 
     void insert_merging(Element * e, Element ** m1, Element ** m2) {
         db<Lists>(TRC) << "Grouping_List_Bottom_Up::insert_merging(e=" << e << ")" << endl;
