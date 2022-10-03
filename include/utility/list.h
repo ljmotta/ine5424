@@ -1340,6 +1340,7 @@ public:
     using Base::begin;
     using Base::end;
     using Base::insert_tail;
+    using Base::insert_head;
     using Base::remove;
     using Base::search;
     using Base::print_head;
@@ -1365,6 +1366,27 @@ public:
         Element * l = search_left(e->object());
         if(!l) {
             insert_tail(e);
+        }
+        if(r) {
+            e->size(e->size() + r->size());
+            remove(r);
+            *m1 = r;
+        }
+        if(l) {
+            l->size(l->size() + e->size());
+            *m2 = e;
+        }
+    }
+
+    void insert_merging_bottom_up(Element * e, Element ** m1, Element ** m2) {
+        db<Lists>(TRC) << "Grouping_List::insert_merging(e=" << e << ")" << endl;
+
+        _grouped_size += e->size();
+        *m1 = *m2 = 0;
+        Element * r = search(e->object() + e->size());
+        Element * l = search_left(e->object());
+        if(!l) {
+            insert_head(e);
         }
         if(r) {
             e->size(e->size() + r->size());

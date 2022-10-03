@@ -70,11 +70,11 @@ public:
         db<Heaps>(TRC) << "Heap::free(this=" << this << ",ptr=" << ptr << ",bytes=" << bytes << ")" << endl;
 
         if(ptr && (bytes >= sizeof(Element))) {
-            // the addres is the end of the block (ptr + bytes) - location to create a Element (sizeof(Element))
+            // addres of the link element
             char * location = reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
             Element * e = new (location) Element(reinterpret_cast<char *>(ptr), bytes);
             Element * m1, * m2;
-            insert_merging(e, &m1, &m2);
+            insert_merging_bottom_up(e, &m1, &m2);
         }
     }
 
