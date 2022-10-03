@@ -83,7 +83,7 @@ public:
     enum {
         // Event                         Select  UMask
         UNHALTED_CORE_CYCLES            = 0x3c | (0x00 << 8),
-        COMMITED_INSTRUCTIONS           = 0xc0 | (0x00 << 8),
+        INSTRUCTIONS_RETIRED            = 0xc0 | (0x00 << 8),
         UNHALTED_REFERENCE_CYCLES       = 0x3c | (0x01 << 8),
         LLC_REFERENCES                  = 0x2e | (0x4f << 8),
         LLC_MISSES                      = 0x2e | (0x41 << 8),

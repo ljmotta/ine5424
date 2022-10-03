@@ -47,8 +47,6 @@ private:
     void say_hi();
     void call_next();
 
-    void panic() { Machine::panic(); }
-
 private:
     System_Info * si;
 };
@@ -56,10 +54,10 @@ private:
 
 Setup::Setup()
 {
-    CPU::int_disable(); // interrupts will be re-enabled at init_end
-
     Display::init();
-
+    kout << endl;
+    kerr << endl;
+    
     si = reinterpret_cast<System_Info *>(&__boot_time_system_info);
     if(si->bm.n_cpus > Traits<Machine>::CPUS)
         si->bm.n_cpus = Traits<Machine>::CPUS;
@@ -80,17 +78,13 @@ void Setup::say_hi()
     db<Setup>(TRC) << "Setup::say_hi()" << endl;
     db<Setup>(INF) << "System_Info=" << *si << endl;
 
-    kout << endl;
-
-    if(si->bm.application_offset == -1U) {
+    if(si->bm.application_offset == -1U)
         db<Setup>(ERR) << "No APPLICATION in boot image, you don't need EPOS!" << endl;
-        panic();
-    }
 
     kout << "This is EPOS!\n" << endl;
     kout << "Setting up this machine as follows: " << endl;
     kout << "  Mode:         " << ((Traits<Build>::MODE == Traits<Build>::LIBRARY) ? "library" : (Traits<Build>::MODE == Traits<Build>::BUILTIN) ? "built-in" : "kernel") << endl;
-    kout << "  Processor:    " << Traits<Machine>::CPUS << " x RV64 at " << Traits<CPU>::CLOCK / 1000000 << " MHz (BUS clock = " << Traits<CPU>::CLOCK / 1000000 << " MHz)" << endl;
+    kout << "  Processor:    " << Traits<Machine>::CPUS << " x RV" << Traits<CPU>::WORD_SIZE << " at " << Traits<CPU>::CLOCK / 1000000 << " MHz (BUS clock = " << Traits<CPU>::CLOCK / 1000000 << " MHz)" << endl;
     kout << "  Machine:      SiFive-U" << endl;
     kout << "  Memory:       " << (RAM_TOP + 1 - RAM_BASE) / 1024 << " KB [" << reinterpret_cast<void *>(RAM_BASE) << ":" << reinterpret_cast<void *>(RAM_TOP) << "]" << endl;
     kout << "  User memory:  " << (FREE_TOP - FREE_BASE) / 1024 << " KB [" << reinterpret_cast<void *>(FREE_BASE) << ":" << reinterpret_cast<void *>(FREE_TOP) << "]" << endl;
@@ -111,17 +105,13 @@ void Setup::say_hi()
     kout << endl;
 }
 
+
 void Setup::call_next()
 {
-    // Check for next stage and obtain the entry point
-    Log_Addr pc;
-
-    pc = &_start;
-
     db<Setup>(INF) << "SETUP ends here!" << endl;
 
-    // Call next stage
-    static_cast<void (*)()>(pc)();
+    // Call the next stage
+    static_cast<void (*)()>(_start)();
 
     // SETUP is now part of the free memory and this point should never be reached, but, just in case ... :-)
     db<Setup>(ERR) << "OS failed to init!" << endl;
@@ -136,13 +126,15 @@ void _entry() // machine mode
     if(CPU::mhartid() != 0)                             // SiFive-U requires 2 cores, so we disable core 1 here
         CPU::halt();
 
-    CPU::mstatusc(CPU::MIE);                            // disable interrupts
-    CPU::mies(CPU::MSI | CPU::MTI | CPU::MEI);          // enable interrupts at CLINT so IPI and timer can be triggered
+    CPU::mstatusc(CPU::MIE);                            // disable interrupts (they will be reenabled at Init_End)
+    CPU::mies(CPU::MSI);                                // enable interrupts generation by CLINT
     CLINT::mtvec(CLINT::DIRECT, _int_entry);            // setup a preliminary machine mode interrupt handler pointing it to _int_entry
 
-    CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE - sizeof(long)); // set this hart stack
+    CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE - sizeof(long)); // set the stack pointer, thus creating a stack for SETUP
 
-    CPU::mstatus(CPU::MPP_M | CPU::MPIE);               // stay in machine mode and reenable interrupts at mret
+    Machine::clear_bss();
+
+    CPU::mstatus(CPU::MPP_M);                           // stay in machine mode at mret
 
     CPU::mepc(CPU::Reg(&_setup));                       // entry = _setup
     CPU::mret();                                        // enter supervisor mode at setup (mepc) with interrupts enabled (mstatus.mpie = true)
@@ -150,9 +142,8 @@ void _entry() // machine mode
 
 void _setup() // supervisor mode
 {
-    CPU::mie(CPU::MSI);                                 // enable MSI at CLINT so IPI can be triggered
-
-    Machine::clear_bss();
+    kerr  << endl;
+    kout  << endl;
 
     Setup setup;
 }

@@ -32,7 +32,7 @@ public:
     static const UUID & uuid() { return System::info()->bm.uuid; }
 
 private:
-    static void pre_init(System_Info * si);
+    static void pre_init(System_Info * si) {}
     static void init();
 };
 

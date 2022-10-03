@@ -4,7 +4,7 @@
 
         // Entry point called by SETUP for processors
         .section .text
-        .align  4
+        .align  8
         .global _start
         .type   _start, function
 _start:
@@ -13,7 +13,7 @@ _start:
         bl      _init
 
         // Call main
-        .align  4
+        .align  8
         .globl  __epos_app_entry
         .type   __epos_app_entry, function
 __epos_app_entry:

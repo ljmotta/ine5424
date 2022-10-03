@@ -127,21 +127,21 @@ namespace List_Elements
         typedef Singly_Linked_Grouping Element;
 
     public:
-        Singly_Linked_Grouping(const T * o, int s): _object(o), _size(s), _next(0) {}
+        Singly_Linked_Grouping(const T * o, long s): _object(o), _size(s), _next(0) {}
 
         T * object() const { return const_cast<T *>(_object); }
 
         Element * next() const { return _next; }
         void next(Element * e) { _next = e; }
 
-        unsigned int size() const { return _size; }
-        void size(unsigned int l) { _size = l; }
-        void shrink(unsigned int n) { _size -= n; }
-        void expand(unsigned int n) { _size += n; }
+        unsigned long size() const { return _size; }
+        void size(unsigned long l) { _size = l; }
+        void shrink(unsigned long n) { _size -= n; }
+        void expand(unsigned long n) { _size += n; }
 
     private:
         const T * _object;
-        unsigned int _size;
+        unsigned long _size;
         Element * _next;
     };
 
@@ -241,7 +241,7 @@ namespace List_Elements
         typedef Doubly_Linked_Grouping Element;
 
     public:
-        Doubly_Linked_Grouping(const T * o, int s): _object(o), _size(s), _prev(0), _next(0) {}
+        Doubly_Linked_Grouping(const T * o, long s): _object(o), _size(s), _prev(0), _next(0) {}
 
         T * object() const { return const_cast<T *>(_object); }
 
@@ -250,14 +250,14 @@ namespace List_Elements
         void prev(Element * e) { _prev = e; }
         void next(Element * e) { _next = e; }
 
-        unsigned int size() const { return _size; }
-        void size(unsigned int l) { _size = l; }
-        void shrink(unsigned int n) { _size -= n; }
-        void expand(unsigned int n) { _size += n; }
+        unsigned long size() const { return _size; }
+        void size(unsigned long l) { _size = l; }
+        void shrink(unsigned long n) { _size -= n; }
+        void expand(unsigned long n) { _size += n; }
 
     private:
         const T * _object;
-        unsigned int _size;
+        unsigned long _size;
         Element * _prev;
         Element * _next;
     };

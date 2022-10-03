@@ -277,7 +277,6 @@ public:
 
     static unsigned int id() { return 0; }
     static unsigned int cores() { return 1; }
-    static void smp_barrier(unsigned long cores = cores()) { assert(cores == 1); }
 
     static void fpu_save() {}           // no FPU in M3, implement for M4
     static void fpu_restore() {}        // no FPU in M3, implement for M4
@@ -408,7 +407,6 @@ public:
 
         static void pop(bool interrupt = false, bool stay_in_svc = true);
         static void push(bool interrupt = false, bool stay_in_svc = true);
-        static void first_dispatch() __attribute__((naked));
 
         friend OStream & operator<<(OStream & os, const Context & c) {
             os << hex
@@ -458,10 +456,7 @@ public:
     using ARMv7::halt;
 
     static unsigned int id() { return 0; }
-
     static unsigned int cores() { return 1; }
-
-    static void smp_barrier(unsigned int cores = ARMv7_A::cores()) {}
 
     static void fpu_enable() {
         // This code assumes a compilation with mfloat-abi=hard and does not care for context switches
@@ -552,7 +547,7 @@ inline void ARMv7_A::Context::push(bool interrupt, bool stay_in_svc)
          ASM("adr r12, 1f");                    // calculate the return address using the saved r12 as a temporary
          ASM("str r12, [sp, #56]");             // overwrite PC with the calculated address
          psr_to_tmp();
-         ASM("push {r12}");			// push PSR
+         ASM("push {r12}");                     // push PSR
          if(save_fpu)
              fpu_save();
     }

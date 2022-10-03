@@ -285,7 +285,7 @@ public:
 
     void handler(const Handler & handler) { _handler = handler; }
 
- private:
+private:
     static void int_handler(Interrupt_Id i);
 
     static void init();
@@ -305,7 +305,7 @@ protected:
 class Scheduler_Timer: public Timer
 {
 public:
-    Scheduler_Timer(const Microsecond & quantum, const Handler & handler): Timer(SCHEDULER, 1000000 / quantum, handler) {}
+    Scheduler_Timer(Microsecond quantum, const Handler & handler): Timer(SCHEDULER, 1000000 / quantum, handler) {}
 };
 
 // Timer used by Alarm

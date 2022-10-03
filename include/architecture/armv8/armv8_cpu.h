@@ -288,15 +288,8 @@ public:
 
     using ARMv7_A::halt;
 
-    static unsigned int id() {
-        Reg32 id;
-        ASM("mrs %0, mpidr_el1" : "=r"(id) : : );
-        return id & 0x3;
-    }
-
+    static unsigned int id() { return 0; }
     static unsigned int cores() { return 1; }
-
-    static void smp_barrier(unsigned int cores = ARMv8_A::cores());
 
     static void fpu_save();
     static void fpu_restore();
@@ -547,13 +540,46 @@ public:
     using Base::id;
     using Base::cores;
 
-    using CPU_Common::tsl; 	// TODO
-    using CPU_Common::finc;	// TODO
-    using CPU_Common::fdec;	// TODO
-    using CPU_Common::cas;	// TODO
- 
-    static void smp_barrier(unsigned long cores = cores()) { CPU_Common::smp_barrier<&finc>(cores, id()); }
+    template<typename T>
+    static T tsl(volatile T & lock) {
+        bool ie = int_enabled();
+        int_disable();
+        T old = CPU_Common::tsl(lock);
+        if(ie)
+            int_enable();
+        return old;
+    }
 
+    template<typename T>
+    static T finc(volatile T & value) {
+        bool ie = int_enabled();
+        int_disable();
+        T old = CPU_Common::finc(value);
+        if(ie)
+            int_enable();
+        return old;
+    }
+
+    template<typename T>
+    static T fdec(volatile T & value) {
+        bool ie = int_enabled();
+        int_disable();
+        T old = CPU_Common::fdec(value);
+        if(ie)
+            int_enable();
+        return old;
+    }
+
+    template <typename T>
+    static T cas(volatile T & value, T compare, T replacement) {
+        bool ie = int_enabled();
+        int_disable();
+        T old = CPU_Common::cas(value, compare, replacement);
+        if(ie)
+            int_enable();
+        return old;
+    }
+ 
     static void switch_context(Context ** o, Context * n);
 
     template<typename ... Tn>

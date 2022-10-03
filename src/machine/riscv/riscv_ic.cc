@@ -23,8 +23,9 @@ void IC::entry()
     // Entry-point for the dummy contexts used by the first dispatching of newly created threads
     ASM("       .global _int_leave              \n"
         "_int_leave:                            \n");
-if(Traits<IC>::hysterically_debugged)
+if(Traits<IC>::hysterically_debugged) {
     ASM("       jalr    %0                      \n" : : "r"(print_context));
+}
 
     // Restore context
     ASM("1:                                     \n");
@@ -58,7 +59,6 @@ void IC::int_not(Interrupt_Id id)
 
 void IC::exception(Interrupt_Id id)
 {
-    CPU::Reg core = CPU::id();
     CPU::Reg epc = CPU::mepc();
     CPU::Reg sp = CPU::sp();
     CPU::Reg status = CPU::mstatus();
@@ -66,7 +66,7 @@ void IC::exception(Interrupt_Id id)
     CPU::Reg tval = CPU::mtval();
     Thread * thread = Thread::self();
 
-    db<IC,System>(WRN) << "IC::Exception(" << id << ") => {" << hex << "core=" << core << ",thread=" << thread << ",epc=" << epc << ",sp=" << sp << ",status=" << status << ",cause=" << cause << ",tval=" << tval << "}" << dec;
+    db<IC,System>(WRN) << "IC::Exception(" << id << ") => {" << hex << "thread=" << thread << ",epc=" << epc << ",sp=" << sp << ",status=" << status << ",cause=" << cause << ",tval=" << tval << "}" << dec;
 
     switch(id) {
     case 0: // unaligned instruction
@@ -115,7 +115,7 @@ void IC::exception(Interrupt_Id id)
     db<IC, System>(WRN) << endl;
 
     if(Traits<Build>::hysterically_debugged)
-        Machine::panic();
+        db<IC, System>(ERR) << "Exception stoped execution due to hysterically debuggeing!" << endl;
 
     CPU::fr(sizeof(void *)); // tell CPU::Context::pop(true) to perform PC = PC + [4|8] on return
 }

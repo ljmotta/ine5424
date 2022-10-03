@@ -101,7 +101,7 @@ public:
         write(channel, 0);
     }
 
-    static void init();
+    static void init() {}
 
 private:
     static Reg mcounteren(){ Reg reg; ASM("csrr %0, mcounteren" : "=r"(reg) :); return reg;}

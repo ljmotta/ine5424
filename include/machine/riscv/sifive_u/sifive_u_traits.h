@@ -63,7 +63,7 @@ template <> struct Traits<Timer>: public Traits<Machine_Common>
     // Meaningful values for the timer frequency range from 100 to 10000 Hz. The
     // choice must respect the scheduler time-slice, i. e., it must be higher
     // than the scheduler invocation frequency.
-    static const int FREQUENCY = 10; // Hz
+    static const int FREQUENCY = 1000; // Hz
 };
 
 template <> struct Traits<UART>: public Traits<Machine_Common>
@@ -91,7 +91,7 @@ template<> struct Traits<Serial_Display>: public Traits<Machine_Common>
 
 template<> struct Traits<Scratchpad>: public Traits<Machine_Common>
 {
-    static const bool enabled = true;
+    static const bool enabled = false;
 };
 
 __END_SYS

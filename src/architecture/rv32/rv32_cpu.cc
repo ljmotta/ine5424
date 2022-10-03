@@ -10,11 +10,9 @@ unsigned int CPU::_bus_clock;
 
 void CPU::Context::save() volatile
 {
-    ASM("       sw       x1,    0(a0)           \n");   // push RA as PC
-
-    ASM("       csrr     x3,  mstatus           \n");
-
-    ASM("       sw       x3,    4(a0)           \n"     // push ST
+    ASM("       sw       x1,    0(a0)           \n"     // push RA as PC
+        "       csrr     x3,  mstatus           \n"
+        "       sw       x3,    4(a0)           \n"     // push ST
         "       sw       x1,    8(a0)           \n"     // push RA
         "       sw       x5,   12(a0)           \n"     // push x5-x31
         "       sw       x6,   16(a0)           \n"

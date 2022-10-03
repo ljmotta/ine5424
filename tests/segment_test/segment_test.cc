@@ -18,6 +18,11 @@ int main()
 
     cout << "Segment test" << endl;
 
+    if(Traits<Build>::MODEL == Traits<Build>::SiFive_E) {
+        cout << "This test requires multiheap and the SiFive-E doesn't have enough memory to run it!" << endl;
+        return 0;
+    }
+
     cout << "My address space's page directory is located at " << reinterpret_cast<void *>(MMU::current()) << "" << endl;
     Address_Space self(MMU::current());
 

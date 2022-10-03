@@ -36,10 +36,10 @@ struct Configuration
     unsigned int   clock;
     unsigned char  word_size;
     bool           endianess;  // true => little, false => big
-    unsigned int   mem_base;
-    unsigned int   mem_top;
-    unsigned int   mio_base;
-    unsigned int   mio_top;
+    unsigned long  mem_base;
+    unsigned long  mem_top;
+    unsigned long  mio_base;
+    unsigned long  mio_top;
     short          node_id;   // nodes in SAN (-1 => dynamic)
     int            space_x;   // Spatial coordinates of a node (-1 => mobile)
     int            space_y;
@@ -90,12 +90,16 @@ int main(int argc, char **argv)
 
     // Parse options and arguments
     bool error = false;
+    bool print_si = false;
     if(argc < 3)
         error = true;
 
     int opt;
     while((opt = getopt(argc, argv, "sx:y:z:")) != -1) {
         switch(opt) {
+        case 'c':
+            print_si = true;
+            break;
         case 's': {
             FILE * nul = fopen("/dev/null", "w");
             if(!nul) {
@@ -122,7 +126,7 @@ int main(int argc, char **argv)
         error = true;
 
     if(error) {
-        fprintf(err, "Usage: %s [-s] [-x X] [-y Y] [-z Z] <EPOS root> <boot image> <app1> <app2> ...\n", argv[0]);
+        fprintf(err, "Usage: %s [-c] [-s] [-x X] [-y Y] [-z Z] <EPOS root> <boot image> <app1> <app2> ...\n", argv[0]);
         return 1;
     }
 
@@ -150,14 +154,16 @@ int main(int argc, char **argv)
     }
 
     // Show configuration
-    fprintf(out, "  EPOS mode: %s\n", CONFIG.mode);
-    fprintf(out, "  Machine: %s\n", CONFIG.mach);
-    fprintf(out, "  Model: %s\n", CONFIG.mmod);
-    fprintf(out, "  Processor: %s (%d bits, %s-endian)\n", CONFIG.arch, CONFIG.word_size, CONFIG.endianess ? "little" : "big");
-    fprintf(out, "  Memory: %d KBytes\n", (CONFIG.mem_top - CONFIG.mem_base) / 1024);
+    fprintf(out, "  EPOS mode: \t%s\n", CONFIG.mode);
+    fprintf(out, "  Machine: \t%s\n", CONFIG.mach);
+    fprintf(out, "  Model: \t%s\n", CONFIG.mmod);
+    fprintf(out, "  Processor: \t%s (%d bits, %s-endian)\n", CONFIG.arch, CONFIG.word_size, CONFIG.endianess ? "little" : "big");
+    fprintf(out, "  Memory: \t%ld KBytes\n", (CONFIG.mem_top - CONFIG.mem_base) / 1024);
+    if(CONFIG.node_id != -1)
+        fprintf(out, "  Node id: \t%d\n", CONFIG.node_id);
     if(CONFIG.space_x != -1)
-        fprintf(out, "  Node location: (%d, %d, %d)\n", CONFIG.space_x, CONFIG.space_y, CONFIG.space_z);
-    fprintf(out, "  UUID: ");
+        fprintf(out, "  Node location: \t(%d, %d, %d)\n", CONFIG.space_x, CONFIG.space_y, CONFIG.space_z);
+    fprintf(out, "  UUID: \t");
     for(unsigned int i = 0; i < 8; i++)
         fprintf(out, "%.2x", CONFIG.uuid[i]);
 
@@ -174,7 +180,6 @@ int main(int argc, char **argv)
     si.bm.space_z  = CONFIG.space_z;
     for(unsigned int i = 0; i < 8; i++)
         si.bm.uuid[i]  = CONFIG.uuid[i];
-
 
     // Create the boot image
     unsigned int image_size = 0;
@@ -296,6 +301,30 @@ int main(int argc, char **argv)
         return 1;
     }
     fprintf(out, " done.\n");
+
+    // Show System Info
+    if(print_si) {
+        fprintf(out, "  System_Info->Boot_Map:\n");
+        fprintf(out, "    n_cpus:   \t%u\n", si.bm.n_cpus);
+        fprintf(out, "    mem_base: \t%#010lx\n", si.bm.mem_base);
+        fprintf(out, "    mem_top:  \t%#010lx\n", si.bm.mem_top);
+        fprintf(out, "    mio_base: \t%#010lx\n", si.bm.mio_base);
+        fprintf(out, "    mio_top:  \t%#010lx\n", si.bm.mio_top);
+        fprintf(out, "    node_id:  \t%d\n", si.bm.node_id);
+        fprintf(out, "    space_x:  \t%d\n", si.bm.space_x);
+        fprintf(out, "    space_y:  \t%d\n", si.bm.space_y);
+        fprintf(out, "    space_z:  \t%d\n", si.bm.space_z);
+        fprintf(out, "    uuid:     \t");
+        for(unsigned int i = 0; i < 8; i++)
+            fprintf(out, "%.2x", si.bm.uuid[i]);
+        fprintf(out, "\n");
+        fprintf(out, "    img_size: \t%ld\n", si.bm.img_size);
+        fprintf(out, "    setup:    \t%#010lx\n", si.bm.setup_offset);
+        fprintf(out, "    init:     \t%#010lx\n", si.bm.init_offset);
+        fprintf(out, "    os:       \t%#010lx\n", si.bm.system_offset);
+        fprintf(out, "    app:      \t%#010lx\n", si.bm.application_offset);
+        fprintf(out, "    extras:   \t%#010lx\n", si.bm.extras_offset);
+    }
 
     // Finish
     close(fd_img);

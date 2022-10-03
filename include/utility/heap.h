@@ -24,13 +24,13 @@ public:
         db<Init, Heaps>(TRC) << "Heap() => " << this << endl;
     }
 
-    Heap(void * addr, unsigned int bytes) {
+    Heap(void * addr, unsigned long bytes) {
         db<Init, Heaps>(TRC) << "Heap(addr=" << addr << ",bytes=" << bytes << ") => " << this << endl;
 
         free(addr, bytes);
     }
 
-    void * alloc(unsigned int bytes) {
+    void * alloc(unsigned long bytes) {
         db<Heaps>(TRC) << "Heap::alloc(this=" << this << ",bytes=" << bytes;
 
         if(!bytes)
@@ -74,20 +74,20 @@ public:
     }
 
     static void typed_free(void * ptr) {
-        int * addr = reinterpret_cast<int *>(ptr);
-        unsigned int bytes = *--addr;
+        long * addr = reinterpret_cast<long *>(ptr);
+        unsigned long bytes = *--addr;
         Heap * heap = reinterpret_cast<Heap *>(*--addr);
         heap->free(addr, bytes);
     }
 
     static void untyped_free(Heap * heap, void * ptr) {
-        int * addr = reinterpret_cast<int *>(ptr);
-        unsigned int bytes = *--addr;
+        long * addr = reinterpret_cast<long *>(ptr);
+        unsigned long bytes = *--addr;
         heap->free(addr, bytes);
     }
 
 private:
-    void out_of_memory(unsigned int bytes);
+    void out_of_memory(unsigned long bytes);
 };
 
 __END_UTIL

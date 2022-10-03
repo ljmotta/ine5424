@@ -15,17 +15,18 @@ __BEGIN_SYS
 class Timer: public System_Timer_Engine
 {
     friend Machine;             // for init()
+    friend class Init_System;   // for init()
     friend IC;                  // for eoi()
 
 protected:
-    static const unsigned int CHANNELS = 2;
-    static const unsigned int FREQUENCY = Traits<Timer>::FREQUENCY;
-
     typedef System_Timer_Engine Engine;
     typedef IC_Common::Interrupt_Id Interrupt_Id;
 
+    static const unsigned int CHANNELS = 2;
+    static const unsigned int FREQUENCY = Traits<Timer>::FREQUENCY;
+
 protected:
-    Timer(Channel channel, const Hertz & frequency, const Handler & handler, bool retrigger = true)
+    Timer(Channel channel, Hertz frequency, const Handler & handler, bool retrigger = true)
     : _channel(channel), _initial(FREQUENCY / frequency), _retrigger(retrigger), _handler(handler) {
         db<Timer>(TRC) << "Timer(f=" << frequency << ",h=" << reinterpret_cast<void*>(handler) << ",ch=" << channel << ") => {count=" << _initial << "}" << endl;
 
@@ -45,6 +46,15 @@ public:
     }
 
     Tick read() { return _current; }
+
+    int restart() {
+        db<Timer>(TRC) << "Timer::restart() => {f=" << frequency() << ",h=" << reinterpret_cast<void *>(_handler) << ",count=" << _current << "}" << endl;
+
+        int percentage = _current * 100 / _initial;
+        _current= _initial;
+
+        return percentage;
+    }
 
     static void reset() { db<Timer>(TRC) << "Timer::reset()" << endl; Engine::reset(); }
     static void enable() { db<Timer>(TRC) << "Timer::enable()" << endl; Engine::enable(); }
@@ -78,23 +88,11 @@ class Scheduler_Timer: public Timer
 {
 public:
     Scheduler_Timer(Microsecond quantum, const Handler & handler): Timer(SCHEDULER, 1000000 / quantum, handler) {}
-
-    int restart() {
-        db<Timer>(TRC) << "Timer::restart() => {f=" << frequency() << ",h=" << reinterpret_cast<void *>(_handler) << ",count=" << _current << "}" << endl;
-
-        int percentage = _current * 100 / _initial;
-        _current= _initial;
-
-        return percentage;
-    }
 };
 
 // Timer used by Alarm
 class Alarm_Timer: public Timer
 {
-public:
-    static const unsigned int FREQUENCY = Timer::FREQUENCY;
-
 public:
     Alarm_Timer(const Handler & handler): Timer(ALARM, FREQUENCY, handler) {}
 };

@@ -88,6 +88,7 @@ private:
     void setup_sys_pt();
     void setup_app_pt();
     void setup_sys_pd();
+    
     void enable_paging();
 
     void load_parts();
@@ -252,8 +253,13 @@ void Setup::build_lm()
         if(!sys_elf->valid())
             db<Setup>(ERR) << "OS ELF image is corrupted!" << endl;
         si->lm.sys_entry = sys_elf->entry();
-        for(int i = 0; i < sys_elf->segments(); i++) {
-            if((sys_elf->segment_size(i) == 0) || (sys_elf->segment_type(i) != PT_LOAD))
+        int i = 0;
+        for(; (i < sys_elf->segments()) && (sys_elf->segment_type(i) != PT_LOAD); i++);
+        si->lm.sys_code = sys_elf->segment_address(i);
+        si->lm.sys_code_size = sys_elf->segment_size(i);
+        si->lm.sys_segments = 1;
+        for(i++; i < sys_elf->segments(); i++) {
+            if(sys_elf->segment_type(i) != PT_LOAD)
                 continue;
             if((sys_elf->segment_address(i) < SYS) || (sys_elf->segment_address(i) > SYS_HIGH)) {
                 db<Setup>(WRN) << "Ignoring ELF segment " << i << " at " << hex << sys_elf->segment_address(i) << "!"<< endl;
@@ -346,6 +352,8 @@ void Setup::build_lm()
         if(si->lm.has_ext) { // Check for EXTRA data in the boot image
             si->lm.app_extra = si->lm.app_data + si->lm.app_data_size;
             si->lm.app_extra_size = si->bm.img_size - si->bm.extras_offset;
+            if(Traits<System>::multiheap)
+                si->lm.app_extra_size = MMU::align_page(si->lm.app_extra_size);
             si->lm.app_data_size += si->lm.app_extra_size;
         }
     }
@@ -468,9 +476,9 @@ void Setup::say_hi()
     kout << "  Mode:         " << ((Traits<Build>::MODE == Traits<Build>::LIBRARY) ? "library" : (Traits<Build>::MODE == Traits<Build>::BUILTIN) ? "built-in" : "kernel") << endl;
     kout << "  Processor:    " << Traits<Machine>::CPUS << " x IA32 at " << Traits<CPU>::CLOCK / 1000000 << " MHz (BUS clock = " << Traits<CPU>::CLOCK / 1000000 << " MHz)" << endl;
     kout << "  Machine:      PC" << endl;
-    kout << "  Memory:       " << (si->bm.mem_top - si->bm.mem_base) / 1024 << " KB [" << (void *)si->bm.mem_base << ":" << (void *)si->bm.mem_top << "]" << endl;
-    kout << "  User memory:  " << (si->pmm.usr_mem_top - si->pmm.usr_mem_base) / 1024 << " KB [" << (void *)si->pmm.usr_mem_base << ":" << (void *)si->pmm.usr_mem_top << "]" << endl;
-    kout << "  I/O space:    " << (si->bm.mio_top - si->bm.mio_base) / 1024 << " KB [" << (void *)si->bm.mio_base << ":" << (void *)si->bm.mio_top << "]" << endl;
+    kout << "  Memory:       " << (si->bm.mem_top - si->bm.mem_base) / 1024 << " KB [" << reinterpret_cast<void *>(si->bm.mem_base) << ":" << reinterpret_cast<void *>(si->bm.mem_top) << "]" << endl;
+    kout << "  User memory:  " << (si->pmm.usr_mem_top - si->pmm.usr_mem_base) / 1024 << " KB [" << reinterpret_cast<void *>(si->pmm.usr_mem_base) << ":" << reinterpret_cast<void *>(si->pmm.usr_mem_top) << "]" << endl;
+    kout << "  I/O space:    " << (si->bm.mio_top - si->bm.mio_base) / 1024 << " KB [" << reinterpret_cast<void *>(si->bm.mio_base) << ":" << reinterpret_cast<void *>(si->bm.mio_top) << "]" << endl;
     kout << "  Node Id:      ";
     if(si->bm.node_id != -1)
         kout << si->bm.node_id << " (" << Traits<Build>::NODES << ")" << endl;
@@ -629,6 +637,8 @@ void Setup::setup_app_pt()
     PT_Entry aux;
 
     // APPLICATION code
+    // Since load_parts() will load the code into memory, the code segment can't be marked R/O yet
+    // The correct flags (APPC and APPD) will be configured after the execution of load_parts(), by adjust_perms()
     for(i = 0, aux = si->pmm.app_code; i < MMU::pages(si->lm.app_code_size); i++, aux = aux + sizeof(Page))
         app_code_pt[MMU::page(si->lm.app_code) + i] = MMU::phy2pte(aux, Flags::APP);
 
@@ -700,7 +710,7 @@ void Setup::setup_sys_pd()
     io_size += VGA_SIZE / sizeof(Page); // add room for VGA (64 kB, 16 pages)
     n_pts = MMU::page_tables(io_size);
 
-    // Map IO address space into the page tables pointed by io_pts
+    // Map I/O address space into the page tables pointed by io_pts
     pts = reinterpret_cast<PT_Entry *>(si->pmm.io_pts);
     unsigned int i = 0;
     for(; i < (APIC_SIZE / sizeof(Page)); i++)
@@ -909,9 +919,8 @@ void Setup::call_next()
     // Note we don't have the original stack here anymore!
     reinterpret_cast<void (*)()>(si->lm.app_entry)();
 
-    // SETUP is now part of the free memory and this point should never be
-    // reached, but, just in case ... :-)
-    panic();
+    // SETUP is now part of the free memory and this point should never be reached, but, just in case ... :-)
+    db<Setup>(ERR) << "OS failed to init!" << endl;
 }
 
 
