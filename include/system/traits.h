@@ -195,6 +195,12 @@ struct Traits_Tokens
     // SmartData predictors
     enum :unsigned char {NONE, LVP, DBP};
 
+    // Heap strategy
+    struct Heap_Strategy { enum {
+        TOP_DOWN,
+        BOTTOM_UP,
+    }; };
+
     // Monitor events (Transducers)
     struct Transducer_Event { enum {
         CPU_TEMPERATURE,

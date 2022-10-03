@@ -10,7 +10,7 @@
 __BEGIN_UTIL
 
 // Heap
-class Heap: private Grouping_List<char>
+class Heap: private IF<(Traits<System>::HEAP_STRATEGY == Traits_Tokens::Heap_Strategy::BOTTOM_UP), Grouping_List_Bottom_Up<char>, Grouping_List_Top_Down<char>>::Result
 {
 protected:
     static const bool typed = Traits<System>::multiheap;

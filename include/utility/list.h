@@ -1356,8 +1356,33 @@ public:
         return e;
     }
 
+private:
+    Element * search_left(const Object_Type * obj) {
+        Element * e = head();
+        for(; e && (e->object() + e->size() != obj); e = e->next());
+        return e;
+    }
+
+private:
+    unsigned long _grouped_size;
+};
+
+template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
+class Grouping_List_Top_Down: public Grouping_List<T, El>
+{
+public:
+    Grouping_List_Top_Down(): Grouping_List() {}
+
+    using Base::size;
+    using Base::insert_tail;
+    using Base::remove;
+    using Base::search;
+    using Base::print_head;
+    using Base::print_tail;
+
+
     void insert_merging(Element * e, Element ** m1, Element ** m2) {
-        db<Lists>(TRC) << "Grouping_List::insert_merging(e=" << e << ")" << endl;
+        db<Lists>(TRC) << "Grouping_List_Top_Down::insert_merging(e=" << e << ")" << endl;
 
         _grouped_size += e->size();
         *m1 = *m2 = 0;
@@ -1379,7 +1404,7 @@ public:
     }
 
     Element * search_decrementing(unsigned long s) {
-        db<Lists>(TRC) << "Grouping_List::search_decrementing(s=" << s << ")" << endl;
+        db<Lists>(TRC) << "Grouping_List_Top_Down::search_decrementing(s=" << s << ")" << endl;
         print_head();
         print_tail();
 
@@ -1393,39 +1418,45 @@ public:
 
         return e;
     }
+};
 
-    void insert_merging_bottom_up(Element * e, Element ** m1, Element ** m2) {
-        db<Lists>(TRC) << "Grouping_List::insert_merging_bottom_up(e=" << e << ")" << endl;
+template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
+class Grouping_List_Bottom_Up: public Grouping_List<T, El>
+{
+public:
+    Grouping_List_Bottom_Up(): Grouping_List() {}
+
+    using Base::size;
+    using Base::insert_head;
+    using Base::remove;
+    using Base::search;
+    using Base::print_head;
+    using Base::print_tail;
+
+    void insert_merging(Element * e, Element ** m1, Element ** m2) {
+        db<Lists>(TRC) << "Grouping_List_Bottom_Up::insert_merging(e=" << e << ")" << endl;
 
         _grouped_size += e->size();
         *m1 = *m2 = 0;
         Element * r = search(e->object() + e->size());
         Element * l = search_left(e->object());
         if(!r) {
-            volatile unsigned long something  = e->size();
-            something += 1;
             insert_head(e);
 
         }
         if(r) {
             e->size(e->size() + r->size());
-            // e->object(e->object() - sizeof(Element));ss
-            volatile unsigned long something  = e->size();
-            something += 1;
             remove(r);
             *m1 = r;
         }
         if(l) {
             l->size(l->size() + e->size());
-            // e->object(e->object() - sizeof(Element));
-            volatile unsigned long something  = e->size();
-            something += 1;
             *m2 = e;
         }
     }
 
-    Element * search_decrementing_bottom_up(unsigned long s) {
-        db<Lists>(TRC) << "Grouping_List::search_decrementing_bottom_up(s=" << s << ")" << endl;
+    Element * search_decrementing(unsigned long s) {
+        db<Lists>(TRC) << "Grouping_List_Bottom_Up::search_decrementing(s=" << s << ")" << endl;
         print_head();
         print_tail();
 
@@ -1450,16 +1481,6 @@ public:
 
         return e;
     }
-
-private:
-    Element * search_left(const Object_Type * obj) {
-        Element * e = head();
-        for(; e && (e->object() + e->size() != obj); e = e->next());
-        return e;
-    }
-
-private:
-    unsigned long _grouped_size;
 };
 
 __END_UTIL
