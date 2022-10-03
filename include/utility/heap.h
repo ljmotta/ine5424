@@ -52,10 +52,9 @@ public:
             return 0;
         }
 
-        // e->object is the address of the element that was shrank
-        // e->size is the size of the element.
+        // e->object is the address of the element that was shrank (heap)
         // the new allocated bytes are in the end of the element.
-        // changing to e->object() - bytes to be bottom-up
+        // changing to (e->object() - bytes) to be bottom-up
         long *addr = reinterpret_cast<long *>(e->object() - bytes);
         if(typed)
             *addr++ = reinterpret_cast<long>(this);
@@ -70,9 +69,9 @@ public:
         db<Heaps>(TRC) << "Heap::free(this=" << this << ",ptr=" << ptr << ",bytes=" << bytes << ")" << endl;
 
         if(ptr && (bytes >= sizeof(Element))) {
-            // addres of the link element
-            char * location = reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
-            Element * e = new (location) Element(reinterpret_cast<char *>(ptr), bytes);
+            // place the link info in the end of the element
+            char * elementInfo = reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
+            Element * e = new (elementInfo) Element(reinterpret_cast<char *>(ptr), bytes);
             Element * m1, * m2;
             insert_merging_bottom_up(e, &m1, &m2);
         }

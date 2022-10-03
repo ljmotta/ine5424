@@ -1378,27 +1378,6 @@ public:
         }
     }
 
-    void insert_merging_bottom_up(Element * e, Element ** m1, Element ** m2) {
-        db<Lists>(TRC) << "Grouping_List::insert_merging(e=" << e << ")" << endl;
-
-        _grouped_size += e->size();
-        *m1 = *m2 = 0;
-        Element * r = search(e->object() + e->size());
-        Element * l = search_left(e->object());
-        if(!l) {
-            insert_head(e);
-        }
-        if(r) {
-            e->size(e->size() + r->size());
-            remove(r);
-            *m1 = r;
-        }
-        if(l) {
-            l->size(l->size() + e->size());
-            *m2 = e;
-        }
-    }
-
     Element * search_decrementing(unsigned long s) {
         db<Lists>(TRC) << "Grouping_List::search_decrementing(s=" << s << ")" << endl;
         print_head();
@@ -1415,6 +1394,36 @@ public:
         return e;
     }
 
+    void insert_merging_bottom_up(Element * e, Element ** m1, Element ** m2) {
+        db<Lists>(TRC) << "Grouping_List::insert_merging_bottom_up(e=" << e << ")" << endl;
+
+        _grouped_size += e->size();
+        *m1 = *m2 = 0;
+        Element * r = search(e->object() + e->size());
+        Element * l = search_left(e->object());
+        if(!r) {
+            volatile unsigned long something  = e->size();
+            something += 1;
+            insert_head(e);
+
+        }
+        if(r) {
+            e->size(e->size() + r->size());
+            // e->object(e->object() - sizeof(Element));ss
+            volatile unsigned long something  = e->size();
+            something += 1;
+            remove(r);
+            *m1 = r;
+        }
+        if(l) {
+            l->size(l->size() + e->size());
+            // e->object(e->object() - sizeof(Element));
+            volatile unsigned long something  = e->size();
+            something += 1;
+            *m2 = e;
+        }
+    }
+
     Element * search_decrementing_bottom_up(unsigned long s) {
         db<Lists>(TRC) << "Grouping_List::search_decrementing_bottom_up(s=" << s << ")" << endl;
         print_head();
@@ -1422,13 +1431,15 @@ public:
 
         Element * e = search_size(s);
         if(e) {
-            // actual
-            // [      ]
-            // [    ][]
-            
-            // desired
-            // [      ]
-            // [][    ]
+            // [          heap             | info ]
+            //
+            // ask for s bytes
+            //
+            // [   s   |      heap         | info ]
+            // |       |
+            // |       |
+            // obj     s
+
             // change pointer of object to object pointer + bytes
             e->object(e->object() + s);
             e->shrink(s);
