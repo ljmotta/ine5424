@@ -54,14 +54,11 @@ public:
         }
 
         // e->object is the address of the element that was shrank (heap)
-        // the new allocated bytes are in the end of the element.
-        // changing to (e->object() - bytes) to be bottom-up
-        long *addr;
-        if (heap_strategy == Traits_Tokens::TOP_DOWN) {
-            addr = reinterpret_cast<long *>(e->object() + e->size());
-        } else  {
-            addr = reinterpret_cast<long *>(e->object() - bytes);
-        }
+        // the new allocated bytes are in the begining of the element.
+        // changing to (e->object() - bytes) to be BOTTOM_UP
+        long *addr = heap_strategy  == Traits_Tokens::TOP_DOWN ?
+            reinterpret_cast<long *>(e->object() + e->size()) :
+            reinterpret_cast<long *>(e->object() - bytes);
         if(typed)
             *addr++ = reinterpret_cast<long>(this);
         *addr++ = bytes;
@@ -75,14 +72,11 @@ public:
         db<Heaps>(TRC) << "Heap::free(this=" << this << ",ptr=" << ptr << ",bytes=" << bytes << ")" << endl;
 
         if(ptr && (bytes >= sizeof(Element))) {
-            // place the link info in the end of the element
-            char * elementInfo;
-            if (heap_strategy == Traits_Tokens::TOP_DOWN) {
-                elementInfo = reinterpret_cast<char *>(ptr);
-            } else  {
-                elementInfo = reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
-            }
-            Element * e = new (elementInfo) Element(reinterpret_cast<char *>(ptr), bytes);
+            // place the link data in the end of the element if it's BOTTOM_UP
+            char * linkData = heap_strategy == Traits_Tokens::TOP_DOWN ?
+                reinterpret_cast<char *>(ptr) :
+                reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
+            Element * e = new (linkData) Element(reinterpret_cast<char *>(ptr), bytes);
             Element * m1, * m2;
             insert_merging(e, &m1, &m2);
         }
