@@ -1447,7 +1447,7 @@ public:
         *m1 = *m2 = 0;
         Element * r = search(e->object() + e->size());
         Element * l = search_left(e->object());
-        if(!r) {
+        if(!l) {
             // change to head
             insert_head(e);
         }
