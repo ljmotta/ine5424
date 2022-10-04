@@ -139,7 +139,7 @@ endif
 ifeq ($(MMOD),zynq)
 cortex_CC_FLAGS		:= -mcpu=cortex-a9
 cortex_AS_FLAGS		:= -mcpu=cortex-a9
-cortex_EMULATOR		= qemu-system-arm $(QEMU_DEBUG) -machine xilinx-zynq-a9  -smp $(CPUS) -m $(MEM_SIZE)k -serial null -serial mon:stdio -nographic -no-reboot $(BOOT_ROM) -kernel 
+cortex_EMULATOR		= qemu-system-arm $(QEMU_DEBUG) -machine xilinx-zynq-a9 -smp $(CPUS) -m $(MEM_SIZE)k -serial null -serial mon:stdio -nographic -no-reboot $(BOOT_ROM) -kernel 
 cortex_DEBUGGER		:= gdb
 cortex_FLASHER		= $(TLS)/eposflash/eposflash-$(MMOD) -d /dev/ttyACM0 -f
 cortex_MAGIC		:= --omagic
@@ -215,7 +215,7 @@ else
 riscv_CC_FLAGS      := -march=rv32gc -mabi=ilp32d -Wl, -mno-relax
 riscv_AS_FLAGS      := -march=rv32gc -mabi=ilp32d
 riscv_LD_FLAGS      := -m elf32lriscv_ilp32f --no-relax
-riscv_EMULATOR     = qemu-system-riscv32 $(QEMU_DEBUG) -machine virt -cpu rv32 -smp $(CPUS) -m $(MEM_SIZE)k -serial mon:stdio -bios none -nographic -no-reboot $(BOOT_ROM) -kernel 
+riscv_EMULATOR		= qemu-system-riscv32 $(QEMU_DEBUG) -machine virt -cpu rv32 -smp $(CPUS) -m $(MEM_SIZE)k -serial mon:stdio -bios none -nographic -no-reboot $(BOOT_ROM) -kernel 
 endif 
 riscv_DEBUGGER		:= $(COMP_PREFIX)gdb
 riscv_FLASHER		:= 

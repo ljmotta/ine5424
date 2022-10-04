@@ -5,10 +5,8 @@
 
 __BEGIN_SYS
 
-// Class attributes
 Timer * Timer::_channels[CHANNELS];
 
-// Class methods
 void Timer::int_handler(Interrupt_Id i)
 {
     if(_channels[USER] && (--_channels[USER]->_current <= 0)) {

@@ -97,6 +97,7 @@ namespace EPOS {
 #endif
 
 #ifdef __lm3s811__
+#define __armv7m__
 #define __cortex_m__
 #define __cortex_m3__
 #define __TSC_H                 __HEADER_ARCH(tsc)
@@ -107,6 +108,7 @@ namespace EPOS {
 #endif
 
 #ifdef __emote3__
+#define __armv7m__
 #define __cortex_m__
 #define __cortex_m3__
 #define __TSC_H                 __HEADER_ARCH(tsc)
@@ -132,6 +134,7 @@ namespace EPOS {
 #endif
 
 #ifdef __zynq__
+#define __armv7a__
 #define __cortex_a__
 #define __cortex_a9__
 #define __TSC_H                 __HEADER_ARCH(tsc)
@@ -144,6 +147,7 @@ namespace EPOS {
 #endif
 
 #ifdef __realview_pbx__
+#define __armv7a__
 #define __cortex_a__
 #define __cortex_a9__
 #define __realview_pbx__

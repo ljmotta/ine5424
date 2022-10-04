@@ -5,8 +5,6 @@
 
 #include <architecture/cpu.h>
 
-extern "C" { void _int_leave(); }
-
 __BEGIN_SYS
 
 class CPU: protected CPU_Common
@@ -215,7 +213,6 @@ public:
     static void fr(Reg r) {  ASM("mv a0, %0" : : "r"(r) :); }
 
     static unsigned int id() { return 0; }
-
     static unsigned int cores() { return 1; }
 
     using CPU_Common::clock;
@@ -276,8 +273,6 @@ public:
         return old;
     }
 
-    static void smp_barrier(unsigned long cores = CPU::cores()) {}
-
     static void flush_tlb() {         ASM("sfence.vma"    : :           : "memory"); }
     static void flush_tlb(Reg addr) { ASM("sfence.vma %0" : : "r"(addr) : "memory"); }
 
@@ -305,9 +300,6 @@ public:
         sp -= sizeof(Context);
         Context * ctx = new(sp) Context(entry, exit);
         init_stack_helper(&ctx->_x10, an ...); // x10 is a0
-        sp -= sizeof(Context);
-        ctx = new(sp) Context(&_int_leave, 0); // this context will be popped by switch() to reach _int_leave(), which will activate the thread's context
-        ctx->_x10 = 0; // zero fr() for the pop(true) issued by _int_leave()
         return ctx;
     }
 
@@ -413,24 +405,24 @@ private:
 
 inline void CPU::Context::push(bool interrupt)
 {
-    ASM("       addi    sp, sp, %0              \n" : : "i"(-sizeof(Context))); // adjust SP for the pushes below
+    ASM("       addi     sp, sp, %0             \n" : : "i"(-sizeof(Context))); // adjust SP for the pushes below
 
 if(interrupt) {
-    ASM("       csrr    x3,     mepc            \n"
-        "       sw      x3,     0(sp)           \n");   // push MEPC as PC on interrupts
+    ASM("       csrr     x3,    mepc            \n"
+        "       sw       x3,    0(sp)           \n");   // push MEPC as PC on interrupts
 } else {
-    ASM("       sw      x1,     0(sp)           \n");   // push RA as PC on context switches
+    ASM("       sw       x1,    0(sp)           \n");   // push RA as PC on context switches
 }
 
-    ASM("       csrr    x3,  mstatus            \n");
+    ASM("       csrr     x3,  mstatus           \n");
 
-    ASM("       sw      x3,     4(sp)           \n"     // push ST
-        "       sw      x1,     8(sp)           \n"     // push RA
-        "       sw      x5,    12(sp)           \n"     // push x5-x31
-        "       sw      x6,    16(sp)           \n"
-        "       sw      x7,    20(sp)           \n"
-        "       sw      x8,    24(sp)           \n"
-        "       sw      x9,    28(sp)           \n"
+    ASM("       sw       x3,    4(sp)           \n"     // push ST
+        "       sw       x1,    8(sp)           \n"     // push RA
+        "       sw       x5,   12(sp)           \n"     // push x5-x31
+        "       sw       x6,   16(sp)           \n"
+        "       sw       x7,   20(sp)           \n"
+        "       sw       x8,   24(sp)           \n"
+        "       sw       x9,   28(sp)           \n"
         "       sw      x10,   32(sp)           \n"
         "       sw      x11,   36(sp)           \n"
         "       sw      x12,   40(sp)           \n"
@@ -457,16 +449,16 @@ if(interrupt) {
 
 inline void CPU::Context::pop(bool interrupt)
 {
-    ASM("       lw       x3, 0(sp)              \n");   // pop PC
+    ASM("       lw       x3,    0(sp)           \n");   // pop PC into TMP
 if(interrupt) {
     ASM("       add      x3, x3, a0             \n");   // a0 is set by exception handlers to adjust [M|S]EPC to point to the next instruction if needed
 }
     ASM("       csrw     mepc, x3               \n");   // MEPC = PC
 
-    ASM("       lw       x3,    4(sp)           \n");   // pop ST into x3 (tmp)
+    ASM("       lw       x3,    4(sp)           \n");   // pop ST into TMP
 if(!interrupt) {
-    ASM("       li      a0, 3 << 11             \n"     // use a0 as a second TMP, since it will be restored later
-        "       or      x3, x3, a0              \n");   // mstatus.MPP is automatically cleared on mret, so we reset it to MPP_M here
+    ASM("       li       a0, 3 << 11            \n"     // use a0 as a second TMP, since it will be restored later
+        "       or       x3, x3, a0             \n");   // mstatus.MPP is automatically cleared on mret, so we reset it to MPP_M here
 }
 
     ASM("       lw       x1,    8(sp)           \n"     // pop RA
@@ -499,7 +491,7 @@ if(!interrupt) {
         "       lw      x31,  116(sp)           \n"
         "       addi    sp, sp, %0              \n" : : "i"(sizeof(Context))); // complete the pops above by adjusting SP
 
-    ASM("       csrw    mstatus, x3             \n");   // mstatus = ST
+    ASM("       csrw    mstatus, x3             \n");   // MSTATUS = ST
 }
 
 inline CPU::Reg64 htole64(CPU::Reg64 v) { return CPU::htole64(v); }

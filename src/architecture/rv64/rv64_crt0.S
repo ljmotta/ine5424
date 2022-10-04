@@ -3,7 +3,7 @@
         .file "rv64_crt0.S"
 
         .section .text
-        .align  4
+        .align  8
         .global _start
         .type   _start, function
 _start:
@@ -11,14 +11,14 @@ _start:
         // BSS was cleared by SETUP
         call      _init
 
-        .align  4
+        .align  8
         .globl  __epos_app_entry
         .type   __epos_app_entry, function
 __epos_app_entry:
         // Main's stack was allocated by Thread::init()
         call    main
         addi    sp, sp, -8
-        sw      a0, 0(sp)   // save main's return value to be used by exit()
+        sd      a0, 0(sp)   // save main's return value to be used by exit()
         call    _fini
-        lw      a0, 0(sp)
+        ld      a0, 0(sp)
         call    _exit

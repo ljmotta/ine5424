@@ -12,6 +12,8 @@ void CPU::init()
 
     if(Traits<MMU>::enabled)
         MMU::init();
+    else
+        db<Init, MMU>(WRN) << "MMU is disabled!" << endl;
 
 #ifdef __TSC_H
     if(Traits<TSC>::enabled)

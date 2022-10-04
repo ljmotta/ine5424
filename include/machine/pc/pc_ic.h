@@ -544,9 +544,6 @@ private:
     static Interrupt_Handler _int_vector[INTS];
 };
 
-// Core id in IA32 might be handled by the APIC
-inline volatile unsigned int CPU::id() { return 0; }
-
 __END_SYS
 
 #endif

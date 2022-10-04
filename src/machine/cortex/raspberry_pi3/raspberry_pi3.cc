@@ -6,8 +6,6 @@
 
 __BEGIN_SYS
 
-volatile unsigned int Raspberry_Pi3::_cores;
-
 void Raspberry_Pi3::reboot()
 {
     Reg32 * PM_RSTC = reinterpret_cast<Reg32 *>(Memory_Map::PM_BASE + 0x1c);

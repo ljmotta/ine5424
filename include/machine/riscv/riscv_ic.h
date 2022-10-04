@@ -146,12 +146,6 @@ public:
     static int irq2int(int i) { return i + EXCS; }
     static int int2irq(int i) { return i - EXCS; }
 
-    static void ipi(unsigned int cpu, Interrupt_Id i) {
-        db<IC>(TRC) << "IC::ipi(cpu=" << cpu << ",int=" << i << ")" << endl;
-        assert(i < INTS);
-        reg(MSIP + cpu * MSIP_CORE_OFFSET) = 1;
-    }
-
 private:
     static void dispatch();
 

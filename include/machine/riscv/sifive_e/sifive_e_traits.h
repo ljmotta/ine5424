@@ -45,9 +45,9 @@ public:
     static const unsigned int SYS               = 0xff800000;                           // 4 GB - 8 MB
 
     // Default Sizes and Quantities
-    static const unsigned int MAX_THREADS       = 8;
-    static const unsigned int STACK_SIZE        = 512;
-    static const unsigned int HEAP_SIZE         = 1024;
+    static const unsigned int MAX_THREADS       = 7;
+    static const unsigned int STACK_SIZE        = 640;
+    static const unsigned int HEAP_SIZE         = 512;
 };
 
 template <> struct Traits<IC>: public Traits<Machine_Common>
@@ -65,16 +65,14 @@ template <> struct Traits<Timer>: public Traits<Machine_Common>
     // Meaningful values for the timer frequency range from 100 to 10000 Hz. The
     // choice must respect the scheduler time-slice, i. e., it must be higher
     // than the scheduler invocation frequency.
-    static const int FREQUENCY = 10; // Hz
+    static const int FREQUENCY = 1000; // Hz
 };
 
 template <> struct Traits<UART>: public Traits<Machine_Common>
 {
     static const unsigned int UNITS = 2;
 
-    static const unsigned int REFERENCE_CLOCK = 22729000;
-    static const unsigned int CLOCK_DIVISOR = 16;
-    static const unsigned int CLOCK = REFERENCE_CLOCK/CLOCK_DIVISOR;
+    static const unsigned int CLOCK = 22729000;
 
     static const unsigned int DEF_UNIT = 1;
     static const unsigned int DEF_BAUD_RATE = 115200;

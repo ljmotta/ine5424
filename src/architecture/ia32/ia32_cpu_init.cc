@@ -17,11 +17,12 @@ void CPU::init()
     // Initialize the MMU
     if(Traits<MMU>::enabled)
         MMU::init();
+    else
+        db<Init, MMU>(WRN) << "MMU is disabled!" << endl;
 
     // Initialize the PMU	
     if(Traits<PMU>::enabled)
         PMU::init();
 }
-
 
 __END_SYS

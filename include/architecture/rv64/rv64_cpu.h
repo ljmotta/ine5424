@@ -5,15 +5,13 @@
 
 #include <architecture/cpu.h>
 
-extern "C" { void _int_leave(); }
-
 __BEGIN_SYS
 
 class CPU: protected CPU_Common
 {
     friend class Init_System; // for CPU::init()
 
-public:
+ public:
     // CPU Native Data Types
     using CPU_Common::Reg8;
     using CPU_Common::Reg16;
@@ -55,7 +53,7 @@ public:
         TVM             = 1 << 20,      // Trap Virtual Memory makes SATP inaccessible in supervisor mode
         TW              = 1 << 21,      // Timeout Wait for WFI outside machine mode
         TSR             = 1 << 22,      // Trap SRet in supervisor mode
-        SD              = 1 << 31,      // Status Dirty = (FS | XS)
+        SD              = 1L<< 63       // Status Dirty = (FS | XS)
     };
 
     // Interrupt-Enable, Interrupt-Pending and Machine Cause Registers ([m|s]ie, [m|s]ip, and [m|s]cause when interrupt bit is set)
@@ -101,7 +99,7 @@ public:
         // Contexts are loaded with [m|s]ret, which gets pc from [m|s]epc and updates some bits of [m|s]status, that's why _st is initialized with [M|S]PIE and [M|S]PP
         // Kernel threads are created with usp = 0 and have SPP_S set
         // Dummy contexts for the first execution of each thread (both kernel and user) are created with exit = 0 and SPIE cleared (no interrupts until the second context is popped)
-        Context(Log_Addr entry, Log_Addr exit): _usp(0), _pc(entry), _st((exit ? MPIE : 0) | MPP_M), _x1(exit) {
+        Context(Log_Addr entry, Log_Addr exit): _pc(entry), _st((exit ? MPIE : 0) | MPP_M), _x1(exit) {
             if(Traits<Build>::hysterically_debugged || Traits<Thread>::trace_idle) {
                                                                         _x5 =  5;  _x6 =  6;  _x7 =  7;  _x8 =  8;  _x9 =  9;
                 _x10 = 10; _x11 = 11; _x12 = 12; _x13 = 13; _x14 = 14; _x15 = 15; _x16 = 16; _x17 = 17; _x18 = 18; _x19 = 19;
@@ -116,7 +114,6 @@ public:
         friend OStream & operator<<(OStream & db, const Context & c) {
             db << hex
                << "{sp="   << &c
-               << ",usp="  << c._usp
                << ",pc="   << c._pc
                << ",st="   << c._st
                << ",lr="   << c._x1
@@ -156,7 +153,6 @@ public:
         static void push(bool interrupt = false); // interrupt or context switch?
 
     private:
-        Reg _usp;     // usp (used with multitasking)
         Reg _pc;      // pc
         Reg _st;      // [m|s]status
     //  Reg _x0;      // zero
@@ -216,8 +212,7 @@ public:
     static Reg fr() { Reg r; ASM("mv %0, a0" :  "=r"(r)); return r; }
     static void fr(Reg r) {  ASM("mv a0, %0" : : "r"(r) :); }
 
-    static unsigned int id() { return mhartid(); }
-
+    static unsigned int id() { return 0; }
     static unsigned int cores() { return 1; }
 
     using CPU_Common::clock;
@@ -227,7 +222,7 @@ public:
 
     static void int_enable()  { mint_enable(); }
     static void int_disable() { mint_disable(); }
-    static bool int_enabled() { return mstatus() & MIE ; }
+    static bool int_enabled() { return (mstatus() & MIE); }
     static bool int_disabled() { return !int_enabled(); }
 
     static void halt() { ASM("wfi"); }
@@ -241,44 +236,66 @@ public:
     static T tsl(volatile T & lock) {
         register T old;
         register T one = 1;
-        ASM("1: lr.d    %0, (%1)        \n"
-            "   sc.d    t3, %2, (%1)    \n"
-            "   bnez    t3, 1b          \n" : "=&r"(old) : "r"(&lock), "r"(one) : "t3", "cc", "memory");
+        if(sizeof(T) == sizeof(Reg32))
+            ASM("1: lr.w    %0, (%1)        \n"
+                "   sc.w    t3, %2, (%1)    \n"
+                "   bnez    t3, 1b          \n" : "=&r"(old) : "r"(&lock), "r"(one) : "t3", "cc", "memory");
+        else
+            ASM("1: lr.d    %0, (%1)        \n"
+                "   sc.d    t3, %2, (%1)    \n"
+                "   bnez    t3, 1b          \n" : "=&r"(old) : "r"(&lock), "r"(one) : "t3", "cc", "memory");
         return old;
     }
 
     template<typename T>
     static T finc(volatile T & value) {
         register T old;
-        ASM("1: lr.d    %0, (%1)        \n"
-            "   addi    %0, %0, 1       \n"
-            "   sc.d    t3, %0, (%1)    \n"
-            "   bnez    t3, 1b          \n" : "=&r"(old) : "r"(&value) : "t3", "cc", "memory");
+        if(sizeof(T) == sizeof(Reg32))
+            ASM("1: lr.w    %0, (%1)        \n"
+                "   addi    %0, %0, 1       \n"
+                "   sc.w    t3, %0, (%1)    \n"
+                "   bnez    t3, 1b          \n" : "=&r"(old) : "r"(&value) : "t3", "cc", "memory");
+        else
+            ASM("1: lr.d    %0, (%1)        \n"
+                "   addi    %0, %0, 1       \n"
+                "   sc.d    t3, %0, (%1)    \n"
+                "   bnez    t3, 1b          \n" : "=&r"(old) : "r"(&value) : "t3", "cc", "memory");
         return old - 1;
     }
 
     template<typename T>
     static T fdec(volatile T & value) {
         register T old;
-        ASM("1: lr.d    %0, (%1)        \n"
-            "   addi    %0, %0, -1      \n"
-            "   sc.d    t3, %0, (%1)    \n"
-            "   bnez    t3, 1b          \n" : "=&r"(old) : "r"(&value) : "t3", "cc", "memory");
+        if(sizeof(T) == sizeof(Reg32))
+            ASM("1: lr.w    %0, (%1)        \n"
+                "   addi    %0, %0, -1      \n"
+                "   sc.w    t3, %0, (%1)    \n"
+                "   bnez    t3, 1b          \n" : "=&r"(old) : "r"(&value) : "t3", "cc", "memory");
+        else
+            ASM("1: lr.d    %0, (%1)        \n"
+                "   addi    %0, %0, -1      \n"
+                "   sc.d    t3, %0, (%1)    \n"
+                "   bnez    t3, 1b          \n" : "=&r"(old) : "r"(&value) : "t3", "cc", "memory");
         return old + 1;
     }
 
     template <typename T>
     static T cas(volatile T & value, T compare, T replacement) {
         register T old;
-        ASM("1: lr.d    %0, (%1)        \n"
-            "   bne     %0, %2, 2f      \n"
-            "   sc.d    t3, %3, (%1)    \n"
-            "   bnez    t3, 1b          \n"
-            "2:                         \n" : "=&r"(old) : "r"(&value), "r"(compare), "r"(replacement) : "t3", "cc", "memory");
+        if(sizeof(T) == sizeof(Reg32))
+            ASM("1: lr.w    %0, (%1)        \n"
+                "   bne     %0, %2, 2f      \n"
+                "   sc.w    t3, %3, (%1)    \n"
+                "   bnez    t3, 1b          \n"
+                "2:                         \n" : "=&r"(old) : "r"(&value), "r"(compare), "r"(replacement) : "t3", "cc", "memory");
+        else
+            ASM("1: lr.d    %0, (%1)        \n"
+                "   bne     %0, %2, 2f      \n"
+                "   sc.d    t3, %3, (%1)    \n"
+                "   bnez    t3, 1b          \n"
+                "2:                         \n" : "=&r"(old) : "r"(&value), "r"(compare), "r"(replacement) : "t3", "cc", "memory");
         return old;
     }
-
-    static void smp_barrier(unsigned long cores = CPU::cores()) { CPU_Common::smp_barrier<&finc>(cores, id()); }
 
     static void flush_tlb() {         ASM("sfence.vma"    : :           : "memory"); }
     static void flush_tlb(Reg addr) { ASM("sfence.vma %0" : : "r"(addr) : "memory"); }
@@ -307,15 +324,12 @@ public:
         sp -= sizeof(Context);
         Context * ctx = new(sp) Context(entry, exit);
         init_stack_helper(&ctx->_x10, an ...); // x10 is a0
-        sp -= sizeof(Context);
-        ctx = new(sp) Context(&_int_leave, 0); // this context will be popped by switch() to reach _int_leave(), which will activate the thread's context
-        ctx->_x10 = 0; // zero fr() for the pop(true) issued by _int_leave()
         return ctx;
     }
 
 public:
-    // RISC-V 32 specifics
-    static Reg status()       { return mstatus(); }
+    // RISC-V 64 specifics
+    static Reg status()    { return mstatus(); }
     static void status(Status st) { mstatus(st); }
 
     static Reg tp() { Reg r; ASM("mv %0, x4" : "=r"(r) :); return r; }
@@ -331,8 +345,8 @@ public:
     static void iret() { mret(); }
 
     // Machine mode
-    static void mint_enable()  { ASM("csrrsi x0, mstatus, %0" : : "i"(MIE) : "cc"); }
-    static void mint_disable() { ASM("csrrci x0, mstatus, %0" : : "i"(MIE) : "cc"); }
+    static void mint_enable()  { ASM("csrsi mstatus, %0" : : "i"(MIE) : "cc"); }
+    static void mint_disable() { ASM("csrci mstatus, %0" : : "i"(MIE) : "cc"); }
 
     static Reg mhartid() { Reg r; ASM("csrr %0, mhartid" : "=r"(r) : : "memory", "cc"); return r & 0x3; }
 
@@ -415,91 +429,93 @@ private:
 
 inline void CPU::Context::push(bool interrupt)
 {
-    ASM("       addi     sp, sp, %0             \n" : : "i"(-sizeof(Context))); // adjust sp for the pushes below
+    ASM("       addi     sp, sp, %0             \n" : : "i"(-sizeof(Context))); // adjust SP for the pushes below
 
 if(interrupt) {
     ASM("       csrr     x3,    mepc            \n"
-        "       sd       x3,    8(sp)           \n");   // push MEPC as PC on interrupts
+        "       sd       x3,    0(sp)           \n");   // push MEPC as PC on interrupts
 } else {
-    ASM("       sd       x1,    8(sp)           \n");   // push LR as PC on context switches
+    ASM("       sw       x1,    0(sp)           \n");   // push RA as PC on context switches
 }
 
-    ASM("       csrr     x3,  mstatus           \n"
-        "       sd       x3,   16(sp)           \n"     // push ST
-        "       sd       x1,   24(sp)           \n"     // push RA
-        "       sd       x5,   32(sp)           \n"     // push x5-x31
-        "       sd       x6,   40(sp)           \n"
-        "       sd       x7,   48(sp)           \n"
-        "       sd       x8,   56(sp)           \n"
-        "       sd       x9,   64(sp)           \n"
-        "       sd      x10,   72(sp)           \n"
-        "       sd      x11,   80(sp)           \n"
-        "       sd      x12,   88(sp)           \n"
-        "       sd      x13,   96(sp)           \n"
-        "       sd      x14,  104(sp)           \n"
-        "       sd      x15,  112(sp)           \n"
-        "       sd      x16,  120(sp)           \n"
-        "       sd      x17,  128(sp)           \n"
-        "       sd      x18,  136(sp)           \n"
-        "       sd      x19,  144(sp)           \n"
-        "       sd      x20,  152(sp)           \n"
-        "       sd      x21,  160(sp)           \n"
-        "       sd      x22,  168(sp)           \n"
-        "       sd      x23,  176(sp)           \n"
-        "       sd      x24,  184(sp)           \n"
-        "       sd      x25,  192(sp)           \n"
-        "       sd      x26,  200(sp)           \n"
-        "       sd      x27,  208(sp)           \n"
-        "       sd      x28,  216(sp)           \n"
-        "       sd      x29,  224(sp)           \n"
-        "       sd      x30,  232(sp)           \n"
-        "       sd      x31,  240(sp)           \n");
+    ASM("       csrr     x3,  mstatus           \n");
+
+    ASM("       sd       x3,    8(sp)           \n"     // push ST
+        "       sd       x1,   16(sp)           \n"     // push RA
+        "       sd       x5,   24(sp)           \n"     // push x5-x31
+        "       sd       x6,   32(sp)           \n"
+        "       sd       x7,   40(sp)           \n"
+        "       sd       x8,   48(sp)           \n"
+        "       sd       x9,   56(sp)           \n"
+        "       sd      x10,   64(sp)           \n"
+        "       sd      x11,   72(sp)           \n"
+        "       sd      x12,   80(sp)           \n"
+        "       sd      x13,   88(sp)           \n"
+        "       sd      x14,   96(sp)           \n"
+        "       sd      x15,  104(sp)           \n"
+        "       sd      x16,  112(sp)           \n"
+        "       sd      x17,  120(sp)           \n"
+        "       sd      x18,  128(sp)           \n"
+        "       sd      x19,  136(sp)           \n"
+        "       sd      x20,  144(sp)           \n"
+        "       sd      x21,  152(sp)           \n"
+        "       sd      x22,  160(sp)           \n"
+        "       sd      x23,  168(sp)           \n"
+        "       sd      x24,  176(sp)           \n"
+        "       sd      x25,  184(sp)           \n"
+        "       sd      x26,  192(sp)           \n"
+        "       sd      x27,  200(sp)           \n"
+        "       sd      x28,  208(sp)           \n"
+        "       sd      x29,  216(sp)           \n"
+        "       sd      x30,  224(sp)           \n"
+        "       sd      x31,  232(sp)           \n");
 }
 
 inline void CPU::Context::pop(bool interrupt)
 {
-    ASM("       ld       x3,    8(sp)           \n");   // pop PC into TMP
+    ASM("       ld       x3,    0(sp)           \n");   // pop PC into TMP
 if(interrupt) {
-    ASM("       add      x3, x3, a0             \n");   // a0 is set by exception handlers to adjust [m|s]epc to point to the next instruction if needed
+    ASM("       add      x3, x3, a0             \n");   // a0 is set by exception handlers to adjust [M|S]EPC to point to the next instruction if needed
 }
-    ASM("       csrw     mepc, x3               \n");   // MEPC = saved PC
+    ASM("       csrw     mepc, x3               \n");   // MEPC = PC
 
-    ASM("       ld       x3,   16(sp)           \n");   // pop ST into TMP
+    ASM("       ld       x3,    8(sp)           \n");   // pop ST into TMP
 if(!interrupt) {
     ASM("       li       a0, 3 << 11            \n"     // use a0 as a second TMP, since it will be restored later
         "       or       x3, x3, a0             \n");   // mstatus.MPP is automatically cleared on mret, so we reset it to MPP_M here
 }
-    ASM("       csrw     mstatus, x3            \n");   // MEPC = saved PC
 
-    ASM("       ld       x1,   24(sp)           \n"     // pop RA
-        "       ld       x5,   32(sp)           \n"     // pop x5-x31
-        "       ld       x6,   40(sp)           \n"
-        "       ld       x7,   48(sp)           \n"
-        "       ld       x8,   56(sp)           \n"
-        "       ld       x9,   64(sp)           \n"
-        "       ld      x10,   72(sp)           \n"
-        "       ld      x11,   80(sp)           \n"
-        "       ld      x12,   88(sp)           \n"
-        "       ld      x13,   96(sp)           \n"
-        "       ld      x14,  104(sp)           \n"
-        "       ld      x15,  112(sp)           \n"
-        "       ld      x16,  120(sp)           \n"
-        "       ld      x17,  128(sp)           \n"
-        "       ld      x18,  136(sp)           \n"
-        "       ld      x19,  144(sp)           \n"
-        "       ld      x20,  152(sp)           \n"
-        "       ld      x21,  160(sp)           \n"
-        "       ld      x22,  168(sp)           \n"
-        "       ld      x23,  176(sp)           \n"
-        "       ld      x24,  184(sp)           \n"
-        "       ld      x25,  192(sp)           \n"
-        "       ld      x26,  200(sp)           \n"
-        "       ld      x27,  208(sp)           \n"
-        "       ld      x28,  216(sp)           \n"
-        "       ld      x29,  224(sp)           \n"
-        "       ld      x30,  232(sp)           \n"
-        "       ld      x31,  240(sp)           \n"
-        "       addi    sp, sp, %0              \n" : : "i"(sizeof(Context)));     // complete the pops above by adjusting SP
+    ASM("       ld       x1,   16(sp)           \n"     // pop RA
+        "       ld       x5,   24(sp)           \n"     // pop x5-x31
+        "       ld       x6,   32(sp)           \n"
+        "       ld       x7,   40(sp)           \n"
+        "       ld       x8,   48(sp)           \n"
+        "       ld       x9,   56(sp)           \n"
+        "       ld      x10,   64(sp)           \n"
+        "       ld      x11,   72(sp)           \n"
+        "       ld      x12,   80(sp)           \n"
+        "       ld      x13,   88(sp)           \n"
+        "       ld      x14,   96(sp)           \n"
+        "       ld      x15,  104(sp)           \n"
+        "       ld      x16,  112(sp)           \n"
+        "       ld      x17,  120(sp)           \n"
+        "       ld      x18,  128(sp)           \n"
+        "       ld      x19,  136(sp)           \n"
+        "       ld      x20,  144(sp)           \n"
+        "       ld      x21,  152(sp)           \n"
+        "       ld      x22,  160(sp)           \n"
+        "       ld      x23,  168(sp)           \n"
+        "       ld      x24,  176(sp)           \n"
+        "       ld      x25,  184(sp)           \n"
+        "       ld      x26,  192(sp)           \n"
+        "       ld      x27,  200(sp)           \n"
+        "       ld      x28,  208(sp)           \n"
+        "       ld      x29,  216(sp)           \n"
+        "       ld      x30,  224(sp)           \n"
+        "       ld      x31,  232(sp)           \n"
+        "       addi    sp, sp, %0              \n" : : "i"(sizeof(Context))); // complete the pops above by adjusting SP
+
+    ASM("       csrw    mstatus, x3             \n");   // MSTATUS = ST
 }
 
 inline CPU::Reg64 htole64(CPU::Reg64 v) { return CPU::htole64(v); }

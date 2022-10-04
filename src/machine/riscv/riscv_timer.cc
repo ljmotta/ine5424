@@ -1,6 +1,6 @@
 // EPOS RISC-V Timer Mediator Implementation
 
-#include <machine/machine.h>
+#include <machine/ic.h>
 #include <machine/timer.h>
 
 __BEGIN_SYS

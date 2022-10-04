@@ -19,10 +19,10 @@ class Timer: private Timer_Common, private CLINT
     friend class Init_System;
 
 protected:
+    typedef IC_Common::Interrupt_Id Interrupt_Id;
+
     static const unsigned int CHANNELS = 2;
     static const unsigned int FREQUENCY = Traits<Timer>::FREQUENCY;
-
-    typedef IC_Common::Interrupt_Id Interrupt_Id;
 
 public:
     using Timer_Common::Tick;
@@ -58,8 +58,16 @@ public:
 
     Tick read() { return _current; }
 
-    static void reset() { config(FREQUENCY); }
+    int restart() {
+        db<Timer>(TRC) << "Timer::restart() => {f=" << frequency() << ",h=" << reinterpret_cast<void *>(_handler) << ",count=" << _current << "}" << endl;
 
+        int percentage = _current * 100 / _initial;
+        _current = _initial;
+
+        return percentage;
+    }
+
+    static void reset() { config(FREQUENCY); }
     static void enable() {}
     static void disable() {}
 
@@ -94,23 +102,11 @@ class Scheduler_Timer: public Timer
 {
 public:
     Scheduler_Timer(const Microsecond & quantum, const Handler & handler): Timer(SCHEDULER, 1000000 / quantum, handler) {}
-
-    int restart() {
-        db<Timer>(TRC) << "Timer::restart() => {f=" << frequency() << ",h=" << reinterpret_cast<void *>(_handler) << ",count=" << _current << "}" << endl;
-
-        int percentage = _current * 100 / _initial;
-        _current = _initial;
-
-        return percentage;
-    }
 };
 
 // Timer used by Alarm
 class Alarm_Timer: public Timer
 {
-public:
-    static const unsigned int FREQUENCY = Timer::FREQUENCY;
-
 public:
     Alarm_Timer(const Handler & handler): Timer(ALARM, FREQUENCY, handler) {}
 };

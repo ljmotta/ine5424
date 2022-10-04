@@ -58,15 +58,17 @@ private:
 
 Setup::Setup()
 {
-    CPU::int_disable(); // interrupts will be re-enabled at init_end
+    // Initialize the display so we can print
     Display::init();
+    kerr << endl;
+    kout << endl;
 
-    bi = reinterpret_cast<char *>(IMAGE);
+    // Recover pointers to the boot image and to the System Info
     si = reinterpret_cast<System_Info *>(&__boot_time_system_info);
     if(si->bm.n_cpus > Traits<Machine>::CPUS)
         si->bm.n_cpus = Traits<Machine>::CPUS;
 
-    db<Setup>(TRC) << "Setup(bi=" << reinterpret_cast<void *>(bi) << ",sp=" << CPU::sp() << ")" << endl;
+    db<Setup>(TRC) << "Setup(si=" << reinterpret_cast<void *>(si) << ",sp=" << CPU::sp() << ")" << endl;
     db<Setup>(INF) << "Setup:si=" << *si << endl;
 
     // Print basic facts about this EPOS instance
@@ -78,9 +80,10 @@ Setup::Setup()
     // Enable paging
     enable_paging();
 
-    // SETUP ends here, so let's transfer control to next stage (INIT or APP)
+    // SETUP ends here, so let's transfer control to the next stage (INIT or APP)
     call_next();
 }
+
 
 void Setup::setup_flat_paging()
 {
@@ -208,7 +211,6 @@ void Setup::setup_flat_paging()
         (CPU::ATTR_NORMAL_NON_CACHE) << 3 * CPU::ATTR_OFFSET); // second attribute index
 
 #endif
-
 }
 
 
@@ -217,7 +219,6 @@ void Setup::say_hi()
     db<Setup>(TRC) << "Setup::say_hi()" << endl;
     db<Setup>(INF) << "System_Info=" << *si << endl;
 
-    kout << endl;
     kout << "This is EPOS!\n" << endl;
     kout << "Setting up this machine as follows: " << endl;
     kout << "  Mode:         " << ((Traits<Build>::MODE == Traits<Build>::LIBRARY) ? "library" : (Traits<Build>::MODE == Traits<Build>::BUILTIN) ? "built-in" : "kernel") << endl;
@@ -359,6 +360,13 @@ void _entry()
 
 void _reset()
 {
+    CPU::int_disable(); // interrupts will be re-enabled at init_end
+
+    if(CPU::id() != 0) {
+        // We want secondary cores to be held here
+        CPU::halt();
+    }
+
     // QEMU get us here in SVC mode with interrupt disabled, but the real Raspberry Pi3 starts in hypervisor mode, so we must switch to SVC mode
     if(!Traits<Machine>::emulated) {
         CPU::Reg cpsr = CPU::psr();
@@ -375,27 +383,21 @@ void _reset()
     CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE * (CPU::id() + 1) - sizeof(long));
     CPU::int_disable(); // interrupts will be re-enabled at init_end
 
-    if(CPU::id() == 0) {
-        // After a reset, we copy the vector table to 0x0000 to get a cleaner memory map (it is originally at 0x8000)
-        // An alternative would be to set vbar address via mrc p15, 0, r1, c12, c0, 0
-        CPU::r0(reinterpret_cast<CPU::Reg>(&_entry)); // load r0 with the source pointer
-        CPU::r1(Memory_Map::VECTOR_TABLE); // load r1 with the destination pointer
+    // After a reset, we copy the vector table to 0x0000 to get a cleaner memory map (it is originally at 0x8000)
+    // An alternative would be to set vbar address via mrc p15, 0, r1, c12, c0, 0
+    CPU::r0(reinterpret_cast<CPU::Reg>(&_entry)); // load r0 with the source pointer
+    CPU::r1(Memory_Map::VECTOR_TABLE); // load r1 with the destination pointer
 
-        // Copy the first 32 bytes
-        CPU::ldmia(); // load multiple registers from the memory pointed by r0 and auto-increment it accordingly
-        CPU::stmia(); // store multiple registers to the memory pointed by r1 and auto-increment it accordingly
+    // Copy the first 32 bytes
+    CPU::ldmia(); // load multiple registers from the memory pointed by r0 and auto-increment it accordingly
+    CPU::stmia(); // store multiple registers to the memory pointed by r1 and auto-increment it accordingly
 
-        // Repeat to copy the subsequent 32 bytes
-        CPU::ldmia();
-        CPU::stmia();
+    // Repeat to copy the subsequent 32 bytes
+    CPU::ldmia();
+    CPU::stmia();
 
-        // Clear the BSS (SETUP was linked to CRT0, but entry point didn't go through BSS clear)
-        Machine::clear_bss();
-    } else {
-        BCM_Mailbox * mbox = reinterpret_cast<BCM_Mailbox *>(Memory_Map::MBOX_CTRL_BASE);
-        mbox->eoi(0);
-        mbox->enable();
-    }
+    // Clear the BSS (SETUP was linked to CRT0, but entry point didn't go through BSS clear)
+    Machine::clear_bss();
 
     // Set VBAR to point to the relocated the vector table
     CPU::vbar(Memory_Map::VECTOR_TABLE);
@@ -587,33 +589,35 @@ void _vector_table()
 
 void _reset()
 {
-    if(CPU::id() == 0) {
-        // Relocated the vector table, which has 4 entries for each of the 4 scenarios, all 128 bytes aligned, plus an 8 bytes pointer, totaling 2056 bytes
-        CPU::Reg * src = reinterpret_cast<CPU::Reg *>(&_vector_table);
-        CPU::Reg * dst = reinterpret_cast<CPU::Reg *>(Memory_Map::VECTOR_TABLE);
-        for(int i = 0; i < (2056 / 8); i++)
-            dst[i] = src[i];
-        // Set el1 vbar
-        CPU::vbar_el1(static_cast<CPU::Phy_Addr>(Memory_Map::VECTOR_TABLE));
+    CPU::int_disable(); // interrupts will be re-enabled at init_end
 
-        // Activate aarch64
-        CPU::hcr(CPU::EL1_AARCH64_EN | CPU::SWIO_HARDWIRED);
-
-        // We start at EL2, but must set EL1 SP for a smooth transition, including further exception/interrupt handling
-        CPU::spsr_el2(CPU::FLAG_D | CPU::FLAG_A | CPU::FLAG_I | CPU::FLAG_F | CPU::FLAG_EL1 | CPU::FLAG_SP_ELn);
-        CPU::Reg el1_addr = CPU::pc();
-        el1_addr += 16; // previous instruction, this instruction, and the next one;
-        CPU::elr_el2(el1_addr);
-        CPU::eret();
-        CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE * (CPU::id() + 1)); // set stack
-
-        // Clear the BSS (SETUP was linked to CRT0, but entry point didn't go through BSS clear)
-        Machine::clear_bss();
-    } else {
-        // we want secondary cores to be held here.
-        while(true)
-            CPU::halt();
+    if(CPU::id() != 0) {
+        // We want secondary cores to be held here
+        CPU::halt();
     }
+
+    // Relocated the vector table, which has 4 entries for each of the 4 scenarios, all 128 bytes aligned, plus an 8 bytes pointer, totaling 2056 bytes
+    CPU::Reg * src = reinterpret_cast<CPU::Reg *>(&_vector_table);
+    CPU::Reg * dst = reinterpret_cast<CPU::Reg *>(Memory_Map::VECTOR_TABLE);
+    for(int i = 0; i < (2056 / 8); i++)
+        dst[i] = src[i];
+
+    // Clear the BSS (SETUP was linked to CRT0, but entry point didn't go through BSS clear)
+    Machine::clear_bss();
+
+    // Set EL1 VBAR to the relocated vector table
+    CPU::vbar_el1(static_cast<CPU::Phy_Addr>(Memory_Map::VECTOR_TABLE));
+
+    // Activate aarch64
+    CPU::hcr(CPU::EL1_AARCH64_EN | CPU::SWIO_HARDWIRED);
+
+    // We start at EL2, but must set EL1 SP for a smooth transition, including further exception/interrupt handling
+    CPU::spsr_el2(CPU::FLAG_D | CPU::FLAG_A | CPU::FLAG_I | CPU::FLAG_F | CPU::FLAG_EL1 | CPU::FLAG_SP_ELn);
+    CPU::Reg el1_addr = CPU::pc();
+    el1_addr += 16; // previous instruction, this instruction, and the next one;
+    CPU::elr_el2(el1_addr);
+    CPU::eret();
+    CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE * (CPU::id() + 1)); // set stack
 
     _setup();
 }
@@ -622,7 +626,5 @@ void _reset()
 
 void _setup()
 {
-    CPU::int_disable(); // interrupts will be re-enabled at init_end
-
     Setup setup;
 }
