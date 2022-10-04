@@ -472,6 +472,9 @@ struct Traits_Tokens: public Transducer_Event, public System_Event, public PMU_E
 
     // SmartData predictors
     enum :unsigned char {NONE, LVP, DBP};
+
+    // Heap/Grouping_List strategy
+    enum {TOP_DOWN, BOTTOM_UP};
 };
 
 template<typename T>

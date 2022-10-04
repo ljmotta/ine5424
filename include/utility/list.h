@@ -244,6 +244,7 @@ namespace List_Elements
         Doubly_Linked_Grouping(const T * o, long s): _object(o), _size(s), _prev(0), _next(0) {}
 
         T * object() const { return const_cast<T *>(_object); }
+        void object(const T * object) { _object = object; }
 
         Element * prev() const { return _prev; }
         Element * next() const { return _next; }
@@ -1317,9 +1318,8 @@ template<typename T,
 class Multihead_Scheduling_Multilist: public Scheduling_Multilist<T, R, El, Multihead_Scheduling_List<T, R, El, H>, Q> {};
 
 // Doubly-Linked, Grouping List
-template<typename T,
-          typename El = List_Elements::Doubly_Linked_Grouping<T> >
-class Grouping_List: public List<T, El>
+template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
+class Grouping_List_Base: public List<T, El>
 {
 private:
     typedef List<T, El> Base;
@@ -1330,23 +1330,15 @@ public:
     typedef List_Iterators::Bidirecional<El> Iterator;
 
 public:
-    Grouping_List(): _grouped_size(0) {}
+    Grouping_List_Base(): _grouped_size(0) {}
 
-    using Base::empty;
     using Base::size;
     using Base::head;
-    using Base::tail;
-    using Base::begin;
-    using Base::end;
-    using Base::insert_tail;
-    using Base::remove;
-    using Base::search;
-    using Base::print_head;
-    using Base::print_tail;
 
-    unsigned int grouped_size() const { return _grouped_size; }
+    unsigned long grouped_size() const { return _grouped_size; }
 
-    Element * search_size(unsigned int s) {
+protected:
+    Element * search_size(unsigned long s) {
         Element * e = head();
         if(sizeof(Object_Type) < sizeof(Element))
             for(; e && (e->size() < sizeof(Element) / sizeof(Object_Type) + s) && (e->size() != s); e = e->next());
@@ -1355,13 +1347,46 @@ public:
         return e;
     }
 
+    Element * search_left(const Object_Type * obj) {
+        Element * e = head();
+        for(; e && (e->object() + e->size() != obj); e = e->next());
+        return e;
+    }
+
+protected:
+    unsigned long _grouped_size;
+};
+
+template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
+class Grouping_List_Top_Down: public Grouping_List_Base<T, El>
+{
+private:
+    typedef Grouping_List_Base<T, El> Base;
+
+public:
+    typedef El Element;
+
+public:
+    Grouping_List_Top_Down() {}
+
+    using Base::size;
+    using Base::insert_tail;
+    using Base::remove;
+    using Base::search;
+    using Base::print_head;
+    using Base::print_tail;
+    using Base::_grouped_size;
+    using Base::search_size;
+    using Base::search_left;
+
     void insert_merging(Element * e, Element ** m1, Element ** m2) {
-        db<Lists>(TRC) << "Grouping_List::insert_merging(e=" << e << ")" << endl;
+        db<Lists>(TRC) << "Grouping_List_Top_Down::insert_merging(e=" << e << ")" << endl;
 
         _grouped_size += e->size();
         *m1 = *m2 = 0;
         Element * r = search(e->object() + e->size());
         Element * l = search_left(e->object());
+
         if(!l) {
             insert_tail(e);
         }
@@ -1376,8 +1401,8 @@ public:
         }
     }
 
-    Element * search_decrementing(unsigned int s) {
-        db<Lists>(TRC) << "Grouping_List::search_decrementing(s=" << s << ")" << endl;
+    Element * search_decrementing(unsigned long s) {
+        db<Lists>(TRC) << "Grouping_List_Top_Down::search_decrementing(s=" << s << ")" << endl;
         print_head();
         print_tail();
 
@@ -1391,17 +1416,75 @@ public:
 
         return e;
     }
+};
 
+template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
+class Grouping_List_Bottom_Up: public Grouping_List_Base<T, El>
+{
 private:
-    Element * search_left(const Object_Type * obj) {
-        Element * e = head();
-        for(; e && (e->object() + e->size() != obj); e = e->next());
-        return e;
+    typedef Grouping_List_Base<T, El> Base;
+
+public:
+    typedef El Element;
+
+public:
+    Grouping_List_Bottom_Up() {}
+
+    using Base::size;
+    using Base::insert_head;
+    using Base::remove;
+    using Base::search;
+    using Base::print_head;
+    using Base::print_tail;
+    using Base::_grouped_size;
+    using Base::search_size;
+    using Base::search_left;
+
+    void insert_merging(Element * e, Element ** m1, Element ** m2) {
+        db<Lists>(TRC) << "Grouping_List_Bottom_Up::insert_merging(e=" << e << ")" << endl;
+
+        _grouped_size += e->size();
+        *m1 = *m2 = 0;
+        Element * r = search(e->object() + e->size());
+        Element * l = search_left(e->object());
+        if(!l) {
+            // change to head
+            insert_head(e);
+        }
+        if(r) {
+            e->size(e->size() + r->size());
+            remove(r);
+            *m1 = r;
+        }
+        if(l) {
+            l->size(l->size() + e->size());
+            *m2 = e;
+        }
     }
 
-private:
-    unsigned int _grouped_size;
+    Element * search_decrementing(unsigned long s) {
+        db<Lists>(TRC) << "Grouping_List_Bottom_Up::search_decrementing(s=" << s << ")" << endl;
+        print_head();
+        print_tail();
+
+        Element * e = search_size(s);
+        if(e) {
+            // change pointer of object to object pointer + bytes
+            e->object(e->object() + s);
+            e->shrink(s);
+            _grouped_size -= s;
+            if(!e->size())
+                remove(e);
+        }
+
+        return e;
+    }
 };
+
+template<typename T,
+        unsigned int strategy = Traits_Tokens::TOP_DOWN,
+        typename El = List_Elements::Doubly_Linked_Grouping<T>>
+class Grouping_List: public IF<(strategy == Traits_Tokens::TOP_DOWN), Grouping_List_Top_Down<T, El>, Grouping_List_Bottom_Up<T, El>>::Result {};
 
 __END_UTIL
 

@@ -10,15 +10,16 @@
 __BEGIN_UTIL
 
 // Heap
-class Heap: private Grouping_List<char>
+class Heap: private Grouping_List<char, Traits<System>::HEAP_STRATEGY>
 {
 protected:
     static const bool typed = Traits<System>::multiheap;
+    static const unsigned int heap_strategy = Traits<System>::HEAP_STRATEGY;
 
 public:
-    using Grouping_List<char>::empty;
-    using Grouping_List<char>::size;
-    using Grouping_List<char>::grouped_size;
+    using Grouping_List_Base<char>::empty;
+    using Grouping_List_Base<char>::size;
+    using Grouping_List_Base<char>::grouped_size;
 
     Heap() {
         db<Init, Heaps>(TRC) << "Heap() => " << this << endl;
@@ -52,8 +53,12 @@ public:
             return 0;
         }
 
-        long * addr = reinterpret_cast<long *>(e->object() + e->size());
-
+        // e->object is the address of the element that was shrank
+        // the new allocated bytes are in the begining of the element.
+        // in the BOTTOM_UP config the address is (e->object() - bytes)
+        long *addr = heap_strategy  == Traits_Tokens::TOP_DOWN ?
+            reinterpret_cast<long *>(e->object() + e->size()) :
+            reinterpret_cast<long *>(e->object() - bytes);
         if(typed)
             *addr++ = reinterpret_cast<long>(this);
         *addr++ = bytes;
@@ -63,11 +68,15 @@ public:
         return addr;
     }
 
-    void free(void * ptr, unsigned int bytes) {
+    void free(void * ptr, unsigned long bytes) {
         db<Heaps>(TRC) << "Heap::free(this=" << this << ",ptr=" << ptr << ",bytes=" << bytes << ")" << endl;
 
         if(ptr && (bytes >= sizeof(Element))) {
-            Element * e = new (ptr) Element(reinterpret_cast<char *>(ptr), bytes);
+            // place the link data in the end of the element if it's BOTTOM_UP
+            char * link_data_location = heap_strategy == Traits_Tokens::TOP_DOWN ?
+                reinterpret_cast<char *>(ptr) :
+                reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
+            Element * e = new (link_data_location) Element(reinterpret_cast<char *>(ptr), bytes);
             Element * m1, * m2;
             insert_merging(e, &m1, &m2);
         }
