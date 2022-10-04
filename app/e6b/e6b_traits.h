@@ -113,7 +113,7 @@ template<> struct Traits<System>: public Traits<Build>
 
     static const unsigned int STACK_SIZE = Traits<Machine>::STACK_SIZE;
     static const unsigned int HEAP_SIZE = (Traits<Application>::MAX_THREADS + 1) * Traits<Application>::STACK_SIZE;
-    static const unsigned int HEAP_STRATEGY = Heap_Strategy::BOTTOM_UP;
+    static const unsigned int HEAP_STRATEGY = BOTTOM_UP;
 };
 
 template<> struct Traits<Thread>: public Traits<Build>

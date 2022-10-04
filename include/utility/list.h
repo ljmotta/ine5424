@@ -1319,7 +1319,7 @@ class Multihead_Scheduling_Multilist: public Scheduling_Multilist<T, R, El, Mult
 
 // Doubly-Linked, Grouping List
 template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
-class Grouping_List: public List<T, El>
+class Grouping_List_Base: public List<T, El>
 {
 private:
     typedef List<T, El> Base;
@@ -1330,20 +1330,10 @@ public:
     typedef List_Iterators::Bidirecional<El> Iterator;
 
 public:
-    Grouping_List(): _grouped_size(0) {}
+    Grouping_List_Base(): _grouped_size(0) {}
 
-    using Base::empty;
     using Base::size;
     using Base::head;
-    using Base::tail;
-    using Base::begin;
-    using Base::end;
-    using Base::insert_tail;
-    using Base::insert_head;
-    using Base::remove;
-    using Base::search;
-    using Base::print_head;
-    using Base::print_tail;
 
     unsigned long grouped_size() const { return _grouped_size; }
 
@@ -1368,15 +1358,13 @@ protected:
 };
 
 template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
-class Grouping_List_Top_Down: public Grouping_List<T, El>
+class Grouping_List_Top_Down: public Grouping_List_Base<T, El>
 {
 private:
-    typedef Grouping_List<T, El> Base;
+    typedef Grouping_List_Base<T, El> Base;
 
 public:
-    typedef T Object_Type;
     typedef El Element;
-    typedef List_Iterators::Bidirecional<El> Iterator;
 
 public:
     Grouping_List_Top_Down() {}
@@ -1431,15 +1419,13 @@ public:
 };
 
 template<typename T, typename El = List_Elements::Doubly_Linked_Grouping<T>>
-class Grouping_List_Bottom_Up: public Grouping_List<T, El>
+class Grouping_List_Bottom_Up: public Grouping_List_Base<T, El>
 {
 private:
-    typedef Grouping_List<T, El> Base;
+    typedef Grouping_List_Base<T, El> Base;
 
 public:
-    typedef T Object_Type;
     typedef El Element;
-    typedef List_Iterators::Bidirecional<El> Iterator;
 
 public:
     Grouping_List_Bottom_Up() {}
@@ -1462,8 +1448,8 @@ public:
         Element * r = search(e->object() + e->size());
         Element * l = search_left(e->object());
         if(!r) {
+            // change to head
             insert_head(e);
-
         }
         if(r) {
             e->size(e->size() + r->size());
@@ -1483,15 +1469,6 @@ public:
 
         Element * e = search_size(s);
         if(e) {
-            // [          heap             | info ]
-            //
-            // ask for s bytes
-            //
-            // [   s   |      heap         | info ]
-            // |       |
-            // |       |
-            // obj     s
-
             // change pointer of object to object pointer + bytes
             e->object(e->object() + s);
             e->shrink(s);
@@ -1503,6 +1480,11 @@ public:
         return e;
     }
 };
+
+template<typename T,
+        unsigned int strategy = Traits_Tokens::TOP_DOWN,
+        typename El = List_Elements::Doubly_Linked_Grouping<T>>
+class Grouping_List: public IF<(strategy == Traits_Tokens::TOP_DOWN), Grouping_List_Top_Down<T, El>, Grouping_List_Bottom_Up<T, El>>::Result {};
 
 __END_UTIL
 

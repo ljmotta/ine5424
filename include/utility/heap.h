@@ -10,15 +10,16 @@
 __BEGIN_UTIL
 
 // Heap
-class Heap: private IF<(Traits<System>::HEAP_STRATEGY == Traits_Tokens::Heap_Strategy::BOTTOM_UP), Grouping_List_Bottom_Up<char>, Grouping_List_Top_Down<char>>::Result
+class Heap: private Grouping_List<char, Traits<System>::HEAP_STRATEGY>
 {
 protected:
     static const bool typed = Traits<System>::multiheap;
+    static const unsigned int heap_strategy = Traits<System>::HEAP_STRATEGY;
 
 public:
-    using Grouping_List<char>::empty;
-    using Grouping_List<char>::size;
-    using Grouping_List<char>::grouped_size;
+    using Grouping_List_Base<char>::empty;
+    using Grouping_List_Base<char>::size;
+    using Grouping_List_Base<char>::grouped_size;
 
     Heap() {
         db<Init, Heaps>(TRC) << "Heap() => " << this << endl;
@@ -56,10 +57,10 @@ public:
         // the new allocated bytes are in the end of the element.
         // changing to (e->object() - bytes) to be bottom-up
         long *addr;
-        if (Traits<System>::HEAP_STRATEGY == Traits_Tokens::Heap_Strategy::BOTTOM_UP) {
-            addr = reinterpret_cast<long *>(e->object() - bytes);
-        } else  {
+        if (heap_strategy == Traits_Tokens::TOP_DOWN) {
             addr = reinterpret_cast<long *>(e->object() + e->size());
+        } else  {
+            addr = reinterpret_cast<long *>(e->object() - bytes);
         }
         if(typed)
             *addr++ = reinterpret_cast<long>(this);
@@ -76,10 +77,10 @@ public:
         if(ptr && (bytes >= sizeof(Element))) {
             // place the link info in the end of the element
             char * elementInfo;
-            if (Traits<System>::HEAP_STRATEGY == Traits_Tokens::Heap_Strategy::BOTTOM_UP) {
-                elementInfo = reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
-            } else  {
+            if (heap_strategy == Traits_Tokens::TOP_DOWN) {
                 elementInfo = reinterpret_cast<char *>(ptr);
+            } else  {
+                elementInfo = reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
             }
             Element * e = new (elementInfo) Element(reinterpret_cast<char *>(ptr), bytes);
             Element * m1, * m2;

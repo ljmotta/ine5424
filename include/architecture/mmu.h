@@ -94,7 +94,7 @@ class No_MMU: public MMU_Common<0, 0, 0>
     friend class Setup;
 
 private:
-    typedef Grouping_List_Top_Down<unsigned int> List;
+    typedef Grouping_List<unsigned int> List;
 
 public:
     // Page Flags
