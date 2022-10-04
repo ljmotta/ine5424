@@ -53,9 +53,9 @@ public:
             return 0;
         }
 
-        // e->object is the address of the element that was shrank (heap)
+        // e->object is the address of the element that was shrank
         // the new allocated bytes are in the begining of the element.
-        // changing to (e->object() - bytes) to be BOTTOM_UP
+        // in the BOTTOM_UP config the address is (e->object() - bytes)
         long *addr = heap_strategy  == Traits_Tokens::TOP_DOWN ?
             reinterpret_cast<long *>(e->object() + e->size()) :
             reinterpret_cast<long *>(e->object() - bytes);
@@ -73,10 +73,10 @@ public:
 
         if(ptr && (bytes >= sizeof(Element))) {
             // place the link data in the end of the element if it's BOTTOM_UP
-            char * linkData = heap_strategy == Traits_Tokens::TOP_DOWN ?
+            char * link_data_location = heap_strategy == Traits_Tokens::TOP_DOWN ?
                 reinterpret_cast<char *>(ptr) :
                 reinterpret_cast<char *>(ptr) + bytes - sizeof(Element);
-            Element * e = new (linkData) Element(reinterpret_cast<char *>(ptr), bytes);
+            Element * e = new (link_data_location) Element(reinterpret_cast<char *>(ptr), bytes);
             Element * m1, * m2;
             insert_merging(e, &m1, &m2);
         }
