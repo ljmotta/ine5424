@@ -17,14 +17,14 @@ protected:
 template<> struct Traits<Machine>: public Traits<Machine_Common>
 {
 public:
-    static const unsigned long NOT_USED          = 0xffffffffffffffff;
+    static const unsigned long NOT_USED          = 0xffffffffffffffff;                  // Change to 64bits
 
     // Physical Memory
     static const unsigned long RAM_BASE          = 0x80000000;                           // 2 GB
     static const unsigned long RAM_TOP           = 0x1fffffffff;                         // (0x1fffffffff - 0x80000000) = 126 GB ( ?? max 1536 MB of RAM => RAM + MIO < 2 GB)
     static const unsigned long MIO_BASE          = 0x00000000;
     static const unsigned long MIO_TOP           = 0x1fffffff;                           // ?? 512 MB (max 512 MB of MIO => RAM + MIO < 2 GB)
-
+    
     // Physical Memory at Boot
     static const unsigned long BOOT              = NOT_USED;
     static const unsigned long SETUP             = library ? NOT_USED : RAM_BASE;        // RAM_BASE (will be part of the free memory at INIT, using a logical address identical to physical eliminate SETUP relocation)
@@ -54,7 +54,12 @@ public:
     // Default Sizes and Quantities
     static const unsigned long MAX_THREADS       = 16;
     static const unsigned long STACK_SIZE        = 0x10000;                             // 64 kB (64 * 1024) 
-    static const unsigned long HEAP_SIZE         = 0x40000000;                          // 1 GB
+    static const unsigned long HEAP_SIZE         = 0x100000;                            // 1 MB
+
+    // Physical Memory
+    static const unsigned long BOOT_STACK        = RAM_TOP + 1 - STACK_SIZE;            // will be used as the stack's base, not the stack pointer
+    static const unsigned long FREE_BASE         = RAM_BASE;
+    static const unsigned long FREE_TOP          = BOOT_STACK;
 };
 
 template <> struct Traits<IC>: public Traits<Machine_Common>

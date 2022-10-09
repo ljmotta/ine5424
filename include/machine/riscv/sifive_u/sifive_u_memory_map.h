@@ -21,9 +21,9 @@ public:
         RAM_TOP         = Traits<Machine>::RAM_TOP,
         MIO_BASE        = Traits<Machine>::MIO_BASE,
         MIO_TOP         = Traits<Machine>::MIO_TOP,
-        BOOT_STACK      = RAM_TOP + 1 - Traits<Machine>::STACK_SIZE, // will be used as the stack's base, not the stack pointer
-        FREE_BASE       = RAM_BASE,
-        FREE_TOP        = BOOT_STACK,
+        BOOT_STACK      = Traits<Machine>::BOOT_STACK, // will be used as the stack's base, not the stack pointer
+        FREE_BASE       = Traits<Machine>::FREE_BASE,
+        FREE_TOP        = Traits<Machine>::FREE_TOP,
 
         // Memory-mapped devices
         BIOS_BASE       = 0x00001000,   // BIOS ROM
