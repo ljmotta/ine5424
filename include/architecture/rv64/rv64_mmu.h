@@ -16,7 +16,7 @@
 
 __BEGIN_SYS
 
-class Sv39_MMU: public MMU_Common<9, 9, 12>
+class MMU: public MMU_Common<9, 9, 12>
 {
     friend class CPU;
 
@@ -27,6 +27,8 @@ private:
     static const unsigned long RAM_BASE = Memory_Map::RAM_BASE;
     static const unsigned long APP_LOW = Memory_Map::APP_LOW;
     static const unsigned long PHY_MEM = Memory_Map::PHY_MEM;
+
+    // VPN[2] VPN[1] VPN[0]
     static const unsigned long LEVELS = 3;
 
 public:
@@ -87,7 +89,7 @@ public:
                 for( ; from < to; from++) {
                     // ptes[from] = ((alloc(1) >> 12) << 10) | flags ;
                     Log_Addr * pte = phy2log(&_entry[from]);
-                    *pte = phy2pte(alloc(1), flags);
+                    *pte = pnn2pte(alloc(1), flags);
                 }
         }
 
@@ -95,7 +97,7 @@ public:
             addr = align_page(addr);
             for( ; from < to; from++) {
                 Log_Addr * pte = phy2log(&_entry[from]);
-                *pte = phy2pte(addr, flags);
+                *pte = pnn2pte(addr, flags);
                 addr += sizeof(Page);
             }
         }   
@@ -135,8 +137,10 @@ public:
             free(_pt, _pts);
         }
 
+        // quantas tabelas de paginas foram necessárias para alocar o chunk
         unsigned int pts() const { return _pts; }
         Page_Flags flags() const { return _flags; }
+        // tabela que o chunk ta mapeado
         Page_Table * pt() const { return _pt; }
         unsigned int size() const { return (_to - _from) * sizeof(Page); }
         Phy_Addr phy_address() const { return Phy_Addr(indexes((*_pt)[_from])); }
@@ -187,7 +191,7 @@ public:
 
         void detach(const Chunk & chunk) {
             for(unsigned int i = 0; i < PD_ENTRIES; i++) {
-                if(indexes((*_pd)[i]) == indexes(phy2pde(chunk.pt()))) {
+                if(indexes((*_pd)[i]) == indexes(pnn2pde(chunk.pt()))) {
                     detach(i, chunk.pt(), chunk.pts());
                     return;
                 }
@@ -215,7 +219,7 @@ public:
                 if((*_pd)[i])
                     return false;
             for(unsigned int i = from; i < from + n; i++, pt++)
-                (*_pd)[i] = phy2pde(Phy_Addr(pt));
+                (*_pd)[i] = pnn2pde(Phy_Addr(pt));
             return true;
         }
 
@@ -230,7 +234,7 @@ public:
     };
 
 public:
-    Sv39_MMU() {}
+    MMU() {}
 
     // Frame 4kB
     static Phy_Addr alloc(unsigned int frames = 1) {
@@ -277,38 +281,33 @@ public:
         return (*pt)[page(addr)] | offset(addr);
     }
 
+
     // PNN -> PTE
-    static PT_Entry phy2pte(Phy_Addr frame, Page_Flags flags) { return (frame >> 2) | flags; }
+    static PT_Entry pnn2pte(Phy_Addr frame, Page_Flags flags) { return (frame >> 2) | flags; }
+    // PNN -> PDE (Page Directory Entry = pte, but with X | R | W = 0)
+    static PD_Entry pnn2pde(Phy_Addr frame) { return (frame >> 2) | Page_Flags::V; }
 
-    // PTE -> PNN
-    static Phy_Addr pte2phy(PT_Entry entry) { return (entry & ~Page_Flags::MASK) << 2; }
-
-    // PNN -> PDE (??? Page Directory Entry?)
-    static PD_Entry phy2pde(Phy_Addr frame) { return (frame >> 2) | Page_Flags::V; }
-
-    // PDE -> PNN
-    static Phy_Addr pde2phy(PD_Entry entry) { return (entry & ~Page_Flags::MASK) << 2; }
-
-    static void flush_tlb() {
-        // sfence.vma??
-    }
-    static void flush_tlb(Log_Addr addr) {
-        // sfence.vma??
-    }
+    // only necessary for multihart
+    static void flush_tlb() {}
+    static void flush_tlb(Log_Addr addr) {}
 
 private:
     static void init();
-
-    // PNN -> VPN
-    static Log_Addr phy2log(Phy_Addr phy) { return Log_Addr((RAM_BASE == PHY_MEM) ? phy : (RAM_BASE > PHY_MEM) ? phy - (RAM_BASE - PHY_MEM) : phy + (PHY_MEM - RAM_BASE)); }
+    // ?? PHY not being used
+    static Log_Addr phy2log(Phy_Addr phy) {
+        if (Log_Addr(RAM_BASE == PHY_MEM)) {
+            return phy;
+        }
+        if (RAM_BASE > PHY_MEM) {
+            return phy - (RAM_BASE - PHY_MEM);
+        }
+        return phy + (PHY_MEM - RAM_BASE);
+    };
 
 private:
     static List _free;
     static Page_Directory * _master;
 };
-
-
-class MMU: public Sv39_MMU {};
 
 __END_SYS
 

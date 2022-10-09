@@ -51,9 +51,7 @@ public:
         APP_DATA        = Traits<Machine>::APP_DATA,
 
         INIT            = Traits<Machine>::INIT,
-
         PHY_MEM         = Traits<Machine>::PHY_MEM,
-
         IO              = Traits<Machine>::IO,
 
         SYS             = Traits<Machine>::SYS,
