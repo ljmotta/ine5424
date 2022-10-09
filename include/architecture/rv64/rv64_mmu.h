@@ -16,18 +16,18 @@
 
 __BEGIN_SYS
 
-class Sv39_MMU: public MMU_Common<10, 10, 12>
+class Sv39_MMU: public MMU_Common<9, 9, 12>
 {
     friend class CPU;
 
 private:
+    // groupping list of frames
     typedef Grouping_List<Frame> List;
 
-    static const bool colorful = Traits<MMU>::colorful;
-    static const unsigned int COLORS = Traits<MMU>::COLORS;
     static const unsigned int RAM_BASE = Memory_Map::RAM_BASE;
     static const unsigned int APP_LOW = Memory_Map::APP_LOW;
     static const unsigned int PHY_MEM = Memory_Map::PHY_MEM;
+    static const unsigned int LEVELS = 3;
 
 public:
     // Page Flags
@@ -49,9 +49,9 @@ public:
             MASK = (1 << 8) - 1
         };
 
-        // RISC-V flags
+        // SATP
         enum {
-            MODE    = 1 << 4 // Sv39 MODE
+            SV39    = 1UL << 63 // Sv39 MODE
         };
 
     public:
@@ -78,6 +78,7 @@ public:
 
         PT_Entry & operator[](unsigned int i) { return _entry[i]; }
 
+        // change map to multi level
         void map(int from, int to, Page_Flags flags) {
             Phy_Addr * addr = alloc(to - from);
             if(addr)
@@ -167,8 +168,8 @@ public:
 
         Phy_Addr pd() const { return _pd; }
 
-        // MODE = 1000, 2^12 = 4kB 
-        void activate() const { CPU::satp((1UL << 63) | reinterpret_cast<CPU::Reg64>(_pd) >> 12); }
+        // MODE = 1000
+        void activate() const { CPU::satp((1UL << 63) | reinterpret_cast<CPU::Reg64>(_pd) >> PAGE_SHIFT); }
 
         Log_Addr attach(const Chunk & chunk, unsigned int from = directory(APP_LOW)) {
             for(unsigned int i = from; i < PD_ENTRIES; i++)

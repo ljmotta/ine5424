@@ -57,14 +57,14 @@ public:
         IO              = Traits<Machine>::IO,
 
         SYS             = Traits<Machine>::SYS,
-        SYS_CODE        = NOT_USED,
-        SYS_INFO        = NOT_USED,
-        SYS_PT          = NOT_USED,
-        SYS_PD          = NOT_USED,
-        SYS_DATA        = NOT_USED,
-        SYS_STACK       = NOT_USED,
-        SYS_HEAP        = NOT_USED,
-        SYS_HIGH        = NOT_USED
+        SYS_CODE        = Traits<Machine>::SYS_CODE,
+        SYS_INFO        = Traits<Machine>::SYS_INFO,
+        SYS_PT          = Traits<Machine>::SYS_PT,
+        SYS_PD          = Traits<Machine>::SYS_PD,
+        SYS_DATA        = Traits<Machine>::SYS_DATA,
+        SYS_STACK       = Traits<Machine>::SYS_STACK,
+        SYS_HEAP        = Traits<Machine>::SYS_HEAP,
+        SYS_HIGH        = Traits<Machine>::SYS_HIGH
     };
 };
 

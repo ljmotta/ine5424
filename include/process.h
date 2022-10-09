@@ -178,6 +178,42 @@ private:
     Thread * _handler;
 };
 
+
+// class Task
+// {
+// private:
+//     typedef CPU::Log_Addr Log_Addr;
+
+// public:
+//     Task(Segment * cs, Segment * ds) {
+//         db<Task>(TRC) << "Task(as=" << _as << ",cs=" << _cs << ",ds=" << _ds <<  ",code=" << _code << ",data=" << _data << ") => " << this << endl;
+//         _as = new (SYSTEM) Address_Space;
+//         _cs = cs; // code segment?
+//         _ds = ds; // data segment?
+//         _code = _as->attach(_cs, Memory_Map::APP_CODE); // attach code
+//         _data = _as->attach(_ds, Memory_Map::APP_DATA); // attach data
+
+//         CPU::satp((1UL << 63) | _as->pd() >> 12);
+//     }
+//     ~Task();
+
+//     Address_Space * address_space() const { return _as; }
+
+//     Segment * code_segment() const { return _cs; }
+//     Segment * data_segment() const { return _ds; }
+
+//     Log_Addr code() const { return _code; }
+//     Log_Addr data() const { return _data; }
+
+
+// private:
+//     Address_Space * _as;
+//     Segment * _cs;
+//     Segment * _ds;
+//     Log_Addr _code;
+//     Log_Addr _data;
+// };
+
 __END_SYS
 
 #endif
