@@ -24,10 +24,10 @@ private:
     // groupping list of frames
     typedef Grouping_List<Frame> List;
 
-    static const unsigned int RAM_BASE = Memory_Map::RAM_BASE;
-    static const unsigned int APP_LOW = Memory_Map::APP_LOW;
-    static const unsigned int PHY_MEM = Memory_Map::PHY_MEM;
-    static const unsigned int LEVELS = 3;
+    static const unsigned long RAM_BASE = Memory_Map::RAM_BASE;
+    static const unsigned long APP_LOW = Memory_Map::APP_LOW;
+    static const unsigned long PHY_MEM = Memory_Map::PHY_MEM;
+    static const unsigned long LEVELS = 3;
 
 public:
     // Page Flags

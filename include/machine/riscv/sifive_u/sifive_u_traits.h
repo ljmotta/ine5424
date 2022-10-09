@@ -17,21 +17,43 @@ protected:
 template<> struct Traits<Machine>: public Traits<Machine_Common>
 {
 public:
-    static const unsigned long NOT_USED          = 0xffffffffffffffff;                  // Change to 64bits
+    static const unsigned long NOT_USED          = 0xffffffffffffffff;  // Change to 64bits
+    // Default Sizes and Quantities
+    static const unsigned long MAX_THREADS       = 16;
+    static const unsigned long STACK_SIZE        = 0x10000;     // 64 kB (64 * 1024) 
+    static const unsigned long HEAP_SIZE         = 0x100000;    // 1 MB
+    static const unsigned long PAGE_SIZE         = 0x1000;      // 2^12 4kB
+    static const unsigned long PAGE_ENTRIES      = 512;         // 2^9 VPN[2]
 
     // Physical Memory
     static const unsigned long RAM_BASE          = 0x80000000;                           // 2 GB
-    static const unsigned long RAM_TOP           = 0x1fffffffff;                         // (0x1fffffffff - 0x80000000) = 126 GB ( ?? max 1536 MB of RAM => RAM + MIO < 2 GB)
+    static const unsigned long RAM_TOP           = 0x87ffffff;                           // (0x87ffffff - 0x80000000) = 128 MB RAM ( ?? max 1536 MB of RAM => RAM + MIO < 2 GB)
     static const unsigned long MIO_BASE          = 0x00000000;
-    static const unsigned long MIO_TOP           = 0x1fffffff;                           // ?? 512 MB (max 512 MB of MIO => RAM + MIO < 2 GB)
+    static const unsigned long MIO_TOP           = 0x1fffffff;                            // ?? 512 MB (max 512 MB of MIO => RAM + MIO < 2 GB)
+    static const unsigned long BOOT_STACK        = RAM_TOP + 1 - STACK_SIZE;              // 64kB will be used as the stack's base, not the stack pointer
+    static const unsigned long PAGE_TABLES       = RAM_BASE;                              // put the PAGE_TABLES on the begining of the ram
+    static const unsigned long FREE_BASE         = RAM_BASE - (PAGE_ENTRIES * PAGE_SIZE); // place in the 
+    static const unsigned long FREE_TOP          = PAGE_TABLES;
     
     // Physical Memory at Boot
     static const unsigned long BOOT              = NOT_USED;
-    static const unsigned long SETUP             = library ? NOT_USED : RAM_BASE;        // RAM_BASE (will be part of the free memory at INIT, using a logical address identical to physical eliminate SETUP relocation)
-    static const unsigned long IMAGE             = 0x80100000;                           // RAM_BASE + 1 MB (will be part of the free memory at INIT, defines the maximum image size; if larger than 3 MB then adjust at SETUP)
+    static const unsigned long SETUP             = NOT_USED;            // RAM_BASE (will be part of the free memory at INIT, using a logical address identical to physical eliminate SETUP relocation)
+    static const unsigned long IMAGE             = RAM_BASE + 0x100000; // RAM_BASE + 1 MB (will be part of the free memory at INIT, defines the maximum image size; if larger than 3 MB then adjust at SETUP)
 
-    // System Memory
-    static const unsigned long SYS               = (RAM_TOP - RAM_BASE + 1) / 2;         // (126 Gb / 2)
+    // Logical Memory
+    // Sv39, all bits from 63-39 must be equal to the bit 38
+    static const unsigned long APP_LOW           = 0x0000000000000000;      // 0x0000000000000000
+    static const unsigned long APP_HIGH          = 0x0000003fffffffff;      // 256 GB
+    static const unsigned long APP_CODE          = APP_LOW;                 // 0x0000000000000000
+    static const unsigned long APP_DATA          = APP_CODE + 0x400000;     // 4 MB
+
+    static const unsigned long INIT              = NOT_USED;      // ?? previous= RAM_BASE + 512 KB (will be part of the free memory at INIT)
+    static const unsigned long PHY_MEM           = NOT_USED;      // ?? previous= 512 MB (max 1536 MB of RAM)
+    static const unsigned long IO                = NOT_USED;      // ?? previous= 0 (max 512 MB of IO = MIO_TOP - MIO_BASE)
+
+    // Logical System Memory
+    // Sv39, all bits from 63-39 must be equal to the bit 38
+    static const unsigned long SYS               = 0xFFFFFFC000000000;      // 256 GB
     static const unsigned long SYS_CODE          = NOT_USED;
     static const unsigned long SYS_INFO          = NOT_USED;
     static const unsigned long SYS_PT            = NOT_USED;
@@ -40,26 +62,6 @@ public:
     static const unsigned long SYS_STACK         = NOT_USED;
     static const unsigned long SYS_HEAP          = NOT_USED;
     static const unsigned long SYS_HIGH          = NOT_USED;
-
-    // Logical Memory
-    static const unsigned long APP_LOW           = library ? RAM_BASE : 0x80400000;     // 2 GB + 4 MB (if mode == library starts at 0x80000000, else 0x80400000)
-    static const unsigned long APP_HIGH          = SYS - 1;                             // ends at 0xfffffffff
-    static const unsigned long APP_CODE          = APP_LOW;                             // if mode == library starts at 0x80000000, else 0x80400000
-    static const unsigned long APP_DATA          = APP_CODE + 0x400000;                 // 4 MB and if mode == library starts at 0x80400000, else 0x80800000
-
-    static const unsigned long INIT              = library ? NOT_USED :0x80080000;      // RAM_BASE + 512 KB (will be part of the free memory at INIT)
-    static const unsigned long PHY_MEM           = 0x20000000;                          // 512 MB (max 1536 MB of RAM)
-    static const unsigned long IO                = 0x00000000;                          // 0 (max 512 MB of IO = MIO_TOP - MIO_BASE)
-        
-    // Default Sizes and Quantities
-    static const unsigned long MAX_THREADS       = 16;
-    static const unsigned long STACK_SIZE        = 0x10000;                             // 64 kB (64 * 1024) 
-    static const unsigned long HEAP_SIZE         = 0x100000;                            // 1 MB
-
-    // Physical Memory
-    static const unsigned long BOOT_STACK        = RAM_TOP + 1 - STACK_SIZE;            // will be used as the stack's base, not the stack pointer
-    static const unsigned long FREE_BASE         = RAM_BASE;
-    static const unsigned long FREE_TOP          = BOOT_STACK;
 };
 
 template <> struct Traits<IC>: public Traits<Machine_Common>
