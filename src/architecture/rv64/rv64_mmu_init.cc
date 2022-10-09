@@ -12,13 +12,13 @@ void MMU::init()
     db<Init, MMU>(TRC) << "MMU::init()" << endl;
     db<Init, MMU>(INF) << "MMU::init::dat.e=" << &_edata << ",bss.b=" << &__bss_start << ",bss.e=" << &_end << endl;
     // free FREE_BASE, (FREE_TOP - FREE_BASE)
-    free(System::info()->pmm.free1_base, pages(System::info()->pmm.free1_top - System::info()->pmm.free1_base));
+    free(Traits<Machine>::FREE_BASE, pages(Traits<Machine>::FREE_TOP - Traits<Machine>::FREE_BASE));
 
     // free [_end, (PAGE_TABLES - _end)]
-    // free(align_page(&_end), pages(Traits<Machine>::PAGE_TABLES - align_page(&_end)));
+    // free(align_page(&_end), pages(Traits<Machine>::PAGE_TABLE - align_page(&_end)));
 
     // free [BOOT_STACK, STACK_SIZE]
-    // free(Memory_Map::BOOT_STACK, pages(Traits<Machine>::STACK_SIZE);
+    // free(Memory_Map::BOOT_STACK, pages(Traits<Machine>::STACK_SIZE));
 
 }
 

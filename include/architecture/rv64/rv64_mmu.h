@@ -3,10 +3,6 @@
 #ifndef __rv64_mmu_h
 #define __rv64_mmu_h
 
-// #define __mmu_common_only__
-// #include <architecture/mmu.h>
-// #undef __mmu_common_only__
-// #include <system/memory_map.h>
 #include <system/memory_map.h>
 #include <utility/string.h>
 #include <utility/list.h>
@@ -16,7 +12,7 @@
 
 __BEGIN_SYS
 
-class MMU: public MMU_Common<9, 9, 12>
+class MMU: public MMU_Common<9, 9, 21>
 {
     friend class CPU;
 
@@ -33,7 +29,7 @@ private:
 
 public:
     // Page Flags
-    class Page_Flags
+    class RV64_Flags
     {
     public:
         // RISC-V flags
@@ -46,30 +42,26 @@ public:
             G    = 1 << 5, // Global (mapped in multiple PTs)
             A    = 1 << 6, // Accessed (A == R?)
             D    = 1 << 7, // Dirty (D == W)
-            APP  = (V | R | W | X),
+            APP  = (V | R | W | X | U),
             SYS  = (V | R | W | X),
+            LEAF = (R | W | X),
             MASK = (1 << 8) - 1
         };
 
-        // SATP
-        enum {
-            SV39    = 1UL << 63 // Sv39 MODE
-        };
-
     public:
-        Page_Flags() {}
-        Page_Flags(unsigned int f) : _flags(f) {}
-        Page_Flags(Flags f) : _flags(V | R | X |
+        RV64_Flags() {}
+        RV64_Flags(unsigned long f) : _flags(f) {}
+        RV64_Flags(Flags f) : _flags(V | R | X |
                                      ((f & Flags::RW)  ? W  : 0) | // use W flag
                                      ((f & Flags::USR) ? U  : 0) | // use U flag (0 = supervisor, 1 = user)
                                      ((f & Flags::CWT) ? 0  : 0) | // cache mode
                                      ((f & Flags::CD)  ? 0  : 0)) {} // no cache
 
-        operator unsigned int() const { return _flags; }
-        friend Debug & operator<<(Debug & db, const Page_Flags & f) { db << hex << f._flags; return db; }
+        operator unsigned long() const { return _flags; }
+        friend Debug & operator<<(Debug & db, const RV64_Flags & f) { db << hex << f._flags; return db; }
 
     private:
-        unsigned int _flags;
+        unsigned long _flags;
     };
 
     // Page_Table
@@ -78,10 +70,9 @@ public:
     public:
         Page_Table() {}
 
-        PT_Entry & operator[](unsigned int i) { return _entry[i]; }
+        PT_Entry & operator[](unsigned long i) { return _entry[i]; }
 
-        // change map to multi level
-        void map(int from, int to, Page_Flags flags) {
+        void map(long from, long to, RV64_Flags flags) {
             Phy_Addr * addr = alloc(to - from);
             if(addr)
                 remap(addr, from, to, flags);
@@ -93,7 +84,7 @@ public:
                 }
         }
 
-        void remap(Phy_Addr addr, int from, int to, Page_Flags flags) {
+        void remap(Phy_Addr addr, long from, long to, RV64_Flags flags) {
             addr = align_page(addr);
             for( ; from < to; from++) {
                 Log_Addr * pte = phy2log(&_entry[from]);
@@ -103,7 +94,7 @@ public:
         }   
 
         // system free
-        void unmap(int from, int to) {
+        void unmap(long from, long to) {
             for( ; from < to; from++) {
                 free(_entry[from]);
                 Log_Addr * tmp = phy2log(&_entry[from]);
@@ -121,13 +112,13 @@ public:
     public:
         Chunk() {}
 
-        Chunk(unsigned int bytes, Flags flags)
-        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)), _pt(calloc(_pts)) {
+        Chunk(unsigned long bytes, Flags flags)
+        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(RV64_Flags(flags)), _pt(calloc(_pts)) {
             _pt->map(_from, _to, _flags);
         }
 
-        Chunk(Phy_Addr phy_addr, unsigned int bytes, Flags flags)
-        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)), _pt(calloc(_pts)) {
+        Chunk(Phy_Addr phy_addr, unsigned long bytes, Flags flags)
+        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(RV64_Flags(flags)), _pt(calloc(_pts)) {
             _pt->remap(phy_addr, _from, _to, flags);
         }
 
@@ -138,19 +129,19 @@ public:
         }
 
         // quantas tabelas de paginas foram necessárias para alocar o chunk
-        unsigned int pts() const { return _pts; }
-        Page_Flags flags() const { return _flags; }
+        unsigned long pts() const { return _pts; }
+        RV64_Flags flags() const { return _flags; }
         // tabela que o chunk ta mapeado
         Page_Table * pt() const { return _pt; }
-        unsigned int size() const { return (_to - _from) * sizeof(Page); }
+        unsigned long size() const { return (_to - _from) * sizeof(Page); }
         Phy_Addr phy_address() const { return Phy_Addr(indexes((*_pt)[_from])); }
-        int resize(unsigned int amount) { return 0; }
+        long resize(unsigned long amount) { return 0; }
 
     private:
-        unsigned int _from;
-        unsigned int _to;
-        unsigned int _pts;
-        Page_Flags _flags;
+        unsigned long _from;
+        unsigned long _to;
+        unsigned long _pts;
+        RV64_Flags _flags;
         Page_Table * _pt;
     };
 
@@ -162,7 +153,7 @@ public:
     {
     public:
         Directory() : _pd(phy2log(calloc(1))), _free(true) {
-            for(unsigned int i = directory(PHY_MEM); i < PD_ENTRIES; i++)
+            for(unsigned long i = directory(PHY_MEM); i < PD_ENTRIES; i++)
                 (*_pd)[i] = (*_master)[i];
         }
 
@@ -175,22 +166,23 @@ public:
         // MODE = 1000
         void activate() const { CPU::satp((1UL << 63) | reinterpret_cast<CPU::Reg64>(_pd) >> PAGE_SHIFT); }
 
-        Log_Addr attach(const Chunk & chunk, unsigned int from = directory(APP_LOW)) {
-            for(unsigned int i = from; i < PD_ENTRIES; i++)
+        // attach to 
+        Log_Addr attach(const Chunk & chunk, unsigned long from = directory(APP_LOW)) {
+            for(unsigned long i = from; i < PD_ENTRIES; i++)
                 if(attach(i, chunk.pt(), chunk.pts(), chunk.flags()))
                     return i << DIRECTORY_SHIFT;
             return Log_Addr(false);
         }
 
         Log_Addr attach(const Chunk & chunk, Log_Addr addr) {
-            unsigned int from = directory(addr);
+            unsigned long from = directory(addr);
             if(attach(from, chunk.pt(), chunk.pts(), chunk.flags()))
                 return from << DIRECTORY_SHIFT;
             return Log_Addr(false);
         }
 
         void detach(const Chunk & chunk) {
-            for(unsigned int i = 0; i < PD_ENTRIES; i++) {
+            for(unsigned long i = 0; i < PD_ENTRIES; i++) {
                 if(indexes((*_pd)[i]) == indexes(pnn2pde(chunk.pt()))) {
                     detach(i, chunk.pt(), chunk.pts());
                     return;
@@ -200,7 +192,7 @@ public:
         }
 
         void detach(const Chunk & chunk, Log_Addr addr) {
-            unsigned int from = directory(addr);
+            unsigned long from = directory(addr);
             if(indexes((*_pd)[from]) != indexes(chunk.pt())) {
                 db<MMU>(WRN) << "MMU::Directory::detach(pt=" << chunk.pt() << ",addr=" << addr << ") failed!" << endl;
                 return;
@@ -214,17 +206,17 @@ public:
         }
 
     private:
-        bool attach(unsigned int from, const Page_Table * pt, unsigned int n, Page_Flags flags) {
-            for(unsigned int i = from; i < from + n; i++)
+        bool attach(unsigned long from, const Page_Table * pt, unsigned long n, RV64_Flags flags) {
+            for(unsigned long i = from; i < from + n; i++)
                 if((*_pd)[i])
                     return false;
-            for(unsigned int i = from; i < from + n; i++, pt++)
+            for(unsigned long i = from; i < from + n; i++, pt++)
                 (*_pd)[i] = pnn2pde(Phy_Addr(pt));
             return true;
         }
 
-        void detach(unsigned int from, const Page_Table * pt, unsigned int n) {
-            for(unsigned int i = from; i < from + n; i++)
+        void detach(unsigned long from, const Page_Table * pt, unsigned long n) {
+            for(unsigned long i = from; i < from + n; i++)
                 (*_pd)[i] = 0;
         }
 
@@ -236,8 +228,7 @@ public:
 public:
     MMU() {}
 
-    // Frame 4kB
-    static Phy_Addr alloc(unsigned int frames = 1) {
+    static Phy_Addr alloc(unsigned long frames = 1) {
         Phy_Addr phy(false);
 
         if(frames) {
@@ -252,14 +243,14 @@ public:
         return phy;
     }
 
-    static Phy_Addr calloc(unsigned int frames = 1) {
+    static Phy_Addr calloc(unsigned long frames = 1) {
         Phy_Addr phy = alloc(frames);
         memset(phy2log(phy), 0, sizeof(Frame) * frames);
         return phy;
     }
 
-    // n = ??
-    static void free(Phy_Addr frame, unsigned int n = 1) {
+    // n = qtt of frames
+    static void free(Phy_Addr frame, unsigned long n = 1) {
         frame = indexes(frame); // clean frame
 
         db<MMU>(TRC) << "MMU::free(frame=" << frame << ",n=" << n << ")" << endl;
@@ -271,8 +262,9 @@ public:
         }
     }
 
-    static unsigned int allocable() { return _free.head() ? _free.head()->size() : 0; }
+    static unsigned long allocable() { return _free.head() ? _free.head()->size() : 0; }
 
+    // returns current PNN on SATP
     static Page_Directory * volatile current() { return static_cast<Page_Directory * volatile>(phy2log(CPU::satp() << 12)); }
 
     static Phy_Addr physical(Log_Addr addr) {
@@ -283,9 +275,9 @@ public:
 
 
     // PNN -> PTE
-    static PT_Entry pnn2pte(Phy_Addr frame, Page_Flags flags) { return (frame >> 2) | flags; }
+    static PT_Entry pnn2pte(Phy_Addr frame, RV64_Flags flags) { return (frame >> 2) | flags; }
     // PNN -> PDE (Page Directory Entry = pte, but with X | R | W = 0)
-    static PD_Entry pnn2pde(Phy_Addr frame) { return (frame >> 2) | Page_Flags::V; }
+    static PD_Entry pnn2pde(Phy_Addr frame) { return (frame >> 2) | RV64_Flags::V; }
 
     // only necessary for multihart
     static void flush_tlb() {}
@@ -294,19 +286,11 @@ public:
 private:
     static void init();
     // ?? PHY not being used
-    static Log_Addr phy2log(Phy_Addr phy) {
-        if (Log_Addr(RAM_BASE == PHY_MEM)) {
-            return phy;
-        }
-        if (RAM_BASE > PHY_MEM) {
-            return phy - (RAM_BASE - PHY_MEM);
-        }
-        return phy + (PHY_MEM - RAM_BASE);
-    };
+    static Log_Addr phy2log(const Phy_Addr & phy) { return phy ; }
 
 private:
     static List _free;
-    static Page_Directory * _master;
+    static Page_Directory *_master;
 };
 
 __END_SYS

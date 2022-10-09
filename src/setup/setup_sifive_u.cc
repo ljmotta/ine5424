@@ -45,6 +45,7 @@ public:
 
 private:
     void say_hi();
+    void start_mmu();
     void call_next();
 
 private:
@@ -68,6 +69,7 @@ Setup::Setup()
     // Print basic facts about this EPOS instance
     say_hi();
 
+    // Setup MMU???
     start_mmu();
 
     // SETUP ends here, so let's transfer control to the next stage (INIT or APP)
@@ -108,8 +110,18 @@ void Setup::say_hi()
 }
 
 void Setup::start_mmu() {
-    // Activate MMU here with satp MODE = 1000?
-    // CPU::satp();
+    // create _master under the PAGE_TABLE address
+    // Page_Directory *_master = MMU::current();
+    // Reg pd = Traits<Machine>::PAGE_TABLE;
+    // _master = new ((void *)pd) Page_Directory();
+
+    // qtt of pages for (RAM_TOP + 1) - RAM_BASE
+    // unsigned pages = MMU::pages(Traits<Machine>::RAM_TOP + 1 - Traits<Machine>::RAM_BASE);
+    // unsigned entries = MMU::page_tables(pages);
+    // _master->remap(pd, 0, entries, RV64_Flags::V);
+
+    // Activate MMU here with satp MODE = 1000
+    // CPU::satp((1UL << 63) | (Traits<Machine>::PAGE_TABLE >> 12));
 }
 
 void Setup::call_next()

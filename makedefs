@@ -207,7 +207,7 @@ endif
 
 ifeq ($(MMOD),sifive_u)
 ifeq ($(ARCH),rv64)
-riscv_CC_FLAGS		:= -march=rv64gc -mabi=lp64d -gdwarf-2 -Wl, -mno-relax -mcmodel=medany
+riscv_CC_FLAGS		:= -march=rv64gc -mabi=lp64d -gdwarf-4 -Wl, -mno-relax -mcmodel=medany
 riscv_AS_FLAGS		:= -march=rv64gc -mabi=lp64d
 riscv_LD_FLAGS		:= -m elf64lriscv_lp64f --no-relax
 riscv_EMULATOR		= qemu-system-riscv64 $(QEMU_DEBUG) -machine sifive_u -smp 2 -m $(MEM_SIZE)k -serial mon:stdio -bios none -nographic -no-reboot $(BOOT_ROM) -kernel 
