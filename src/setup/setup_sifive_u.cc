@@ -113,12 +113,10 @@ void Setup::say_hi()
     kout << endl;
 }
 
-typedef unsigned long Reg;
-
 void Setup::start_mmu() {
     // create _master under the PAGE_TABLE address
     // Page_Directory *_master = MMU::current();
-    // Reg pd = Traits<Machine>::PAGE_TABLE;
+    // unsigned long pd = Traits<Machine>::PAGE_TABLE;
     // _master = new ((void *)pd) Page_Directory();
 
     // qtt of pages for (RAM_TOP + 1) - RAM_BASE
