@@ -39,6 +39,10 @@ private:
     typedef CPU::Reg Reg;
     typedef CPU::Phy_Addr Phy_Addr;
     typedef CPU::Log_Addr Log_Addr;
+    typedef MMU::RV64_Flags RV64_Flags;
+    typedef MMU::Page_Table Page_Table;
+    typedef MMU::Page_Directory Page_Directory;
+    typedef MMU::PT_Entry PT_Entry;
 
 public:
     Setup();
@@ -69,7 +73,7 @@ Setup::Setup()
     // Print basic facts about this EPOS instance
     say_hi();
 
-    // Setup MMU???
+    // Setup MMU
     start_mmu();
 
     // SETUP ends here, so let's transfer control to the next stage (INIT or APP)
@@ -109,16 +113,18 @@ void Setup::say_hi()
     kout << endl;
 }
 
+typedef unsigned long Reg;
+
 void Setup::start_mmu() {
     // create _master under the PAGE_TABLE address
-    // Page_Directory *_master = MMU::current();
-    // Reg pd = Traits<Machine>::PAGE_TABLE;
-    // _master = new ((void *)pd) Page_Directory();
+    Page_Directory *_master = MMU::current();
+    Reg pd = Traits<Machine>::PAGE_TABLE;
+    _master = new ((void *)pd) Page_Directory();
 
     // qtt of pages for (RAM_TOP + 1) - RAM_BASE
-    // unsigned pages = MMU::pages(Traits<Machine>::RAM_TOP + 1 - Traits<Machine>::RAM_BASE);
-    // unsigned entries = MMU::page_tables(pages);
-    // _master->remap(pd, 0, entries, RV64_Flags::V);
+    unsigned pages = MMU::pages(Traits<Machine>::RAM_TOP + 1 - Traits<Machine>::RAM_BASE);
+    unsigned entries = MMU::page_tables(pages);
+    _master->remap(pd, 0, entries, RV64_Flags::V);
 
     // Activate MMU here with satp MODE = 1000
     // CPU::satp((1UL << 63) | (Traits<Machine>::PAGE_TABLE >> 12));
@@ -151,6 +157,7 @@ void _entry() // machine mode
     CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE - sizeof(long)); // set the stack pointer, thus creating a stack for SETUP
 
     Machine::clear_bss();
+    // CPU::satp(0);
 
     CPU::mstatus(CPU::MPP_M);                           // stay in machine mode at mret
 

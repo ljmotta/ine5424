@@ -12,7 +12,9 @@
 
 __BEGIN_SYS
 
-class MMU: public MMU_Common<9, 9, 21>
+
+// use 2 Mb pages;
+class Sv39_MMU: public MMU_Common<9, 9, 21>
 {
     friend class CPU;
 
@@ -22,10 +24,6 @@ private:
 
     static const unsigned long RAM_BASE = Memory_Map::RAM_BASE;
     static const unsigned long APP_LOW = Memory_Map::APP_LOW;
-    static const unsigned long PHY_MEM = Memory_Map::PHY_MEM;
-
-    // VPN[2] VPN[1] VPN[0]
-    static const unsigned long LEVELS = 3;
 
 public:
     // Page Flags
@@ -70,7 +68,7 @@ public:
     public:
         Page_Table() {}
 
-        PT_Entry & operator[](unsigned long i) { return _entry[i]; }
+        PT_Entry & operator[](unsigned long i) { return _pte[i]; }
 
         void map(long from, long to, RV64_Flags flags) {
             Phy_Addr * addr = alloc(to - from);
@@ -78,32 +76,20 @@ public:
                 remap(addr, from, to, flags);
             else
                 for( ; from < to; from++) {
-                    // ptes[from] = ((alloc(1) >> 12) << 10) | flags ;
-                    Log_Addr * pte = phy2log(&_entry[from]);
-                    *pte = pnn2pte(alloc(1), flags);
+                    _pte[from] = pnn2pte(alloc(1), flags);
                 }
         }
 
         void remap(Phy_Addr addr, long from, long to, RV64_Flags flags) {
             addr = align_page(addr);
             for( ; from < to; from++) {
-                Log_Addr * pte = phy2log(&_entry[from]);
-                *pte = pnn2pte(addr, flags);
+                _pte[from] = pnn2pte(addr, flags);
                 addr += sizeof(Page);
             }
-        }   
-
-        // system free
-        void unmap(long from, long to) {
-            for( ; from < to; from++) {
-                free(_entry[from]);
-                Log_Addr * tmp = phy2log(&_entry[from]);
-                *tmp = 0;
-            }
-        }
+        } 
 
     private:
-        PT_Entry _entry[PT_ENTRIES];
+        PT_Entry _pte[PT_ENTRIES];
     };
 
     // Chunk (for Segment)
@@ -152,8 +138,8 @@ public:
     class Directory
     {
     public:
-        Directory() : _pd(phy2log(calloc(1))), _free(true) {
-            for(unsigned long i = directory(PHY_MEM); i < PD_ENTRIES; i++)
+        Directory() : _pd(calloc(1)), _free(true) {
+            for(unsigned long i = 0; i < PD_ENTRIES; i++)
                 (*_pd)[i] = (*_master)[i];
         }
 
@@ -163,10 +149,10 @@ public:
 
         Phy_Addr pd() const { return _pd; }
 
-        // MODE = 1000
+        // MODE = 1000 = Sv39
         void activate() const { CPU::satp((1UL << 63) | reinterpret_cast<CPU::Reg64>(_pd) >> PAGE_SHIFT); }
 
-        // attach to 
+        // attach chunk
         Log_Addr attach(const Chunk & chunk, unsigned long from = directory(APP_LOW)) {
             for(unsigned long i = from; i < PD_ENTRIES; i++)
                 if(attach(i, chunk.pt(), chunk.pts(), chunk.flags()))
@@ -226,7 +212,7 @@ public:
     };
 
 public:
-    MMU() {}
+    Sv39_MMU() {}
 
     static Phy_Addr alloc(unsigned long frames = 1) {
         Phy_Addr phy(false);
@@ -285,13 +271,14 @@ public:
 
 private:
     static void init();
-    // ?? PHY not being used
-    static Log_Addr phy2log(const Phy_Addr & phy) { return phy ; }
+    static Log_Addr phy2log(const Phy_Addr & phy) { return phy; }
 
 private:
     static List _free;
     static Page_Directory *_master;
 };
+
+class MMU: public Sv39_MMU {};
 
 __END_SYS
 

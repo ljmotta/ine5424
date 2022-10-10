@@ -35,7 +35,7 @@ public:
     static const unsigned long BOOT_STACK        = RAM_TOP + 1 - STACK_SIZE;              // 64kB will be used as the stack's base, not the stack pointer
     static const unsigned long FREE_BASE         = RAM_BASE + (PAGE_ENTRIES * PAGE_SIZE); // Free memory from RAM_BASE + PAGE_TABLE
     static const unsigned long FREE_TOP          = BOOT_STACK;
-    
+
     // Physical Memory at Boot
     static const unsigned long BOOT              = NOT_USED;
     static const unsigned long SETUP             = NOT_USED;            // RAM_BASE (will be part of the free memory at INIT, using a logical address identical to physical eliminate SETUP relocation)

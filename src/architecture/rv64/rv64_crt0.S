@@ -10,8 +10,6 @@ _start:
         // Temporary stack(s) for INIT were created and configure by SETUP
         // BSS was cleared by SETUP
         call      _init
-        // ensure satp = 0
-        csrw	satp, zero
 
         .align  8
         .globl  __epos_app_entry

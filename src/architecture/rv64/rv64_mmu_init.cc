@@ -7,19 +7,16 @@ extern "C" char _end;
 
 __BEGIN_SYS
 
-void MMU::init()
+void Sv39_MMU::init()
 {
-    db<Init, MMU>(TRC) << "MMU::init()" << endl;
-    db<Init, MMU>(INF) << "MMU::init::dat.e=" << &_edata << ",bss.b=" << &__bss_start << ",bss.e=" << &_end << endl;
-    // free FREE_BASE, (FREE_TOP - FREE_BASE)
-    free(Traits<Machine>::FREE_BASE, pages(Traits<Machine>::FREE_TOP - Traits<Machine>::FREE_BASE));
+    db<Init, MMU>(TRC) << "Sv39_MMU::init()" << endl;
+    db<Init, MMU>(INF) << "Sv39_MMU::init::dat.e=" << &_edata << ",bss.b=" << &__bss_start << ",bss.e=" << &_end << endl;
 
-    // free [_end, (PAGE_TABLES - _end)]
-    // free(align_page(&_end), pages(Traits<Machine>::PAGE_TABLE - align_page(&_end)));
-
-    // free [BOOT_STACK, STACK_SIZE]
-    // free(Memory_Map::BOOT_STACK, pages(Traits<Machine>::STACK_SIZE));
-
+    // free no page_table
+    free(Memory_Map::RAM_BASE, pages(Memory_Map::RAM_BASE + (512 * 0x200000) - Memory_Map::RAM_BASE));
+    
+    // free na stack
+    free(Memory_Map::RAM_TOP + 1 - Traits<Machine>::STACK_SIZE, pages(Traits<Machine>::STACK_SIZE));
 }
 
 __END_SYS
