@@ -20,7 +20,7 @@ public:
     static const unsigned long NOT_USED          = 0xffffffffffffffff;  // Change to 64bits
     // Default Sizes and Quantities
     static const unsigned long MAX_THREADS       = 16;
-    static const unsigned long STACK_SIZE        = 0x10000;     // 64 kB (64 * 1024) 
+    static const unsigned long STACK_SIZE        = 0x10000;     // 64 kB (64 * 1024)
     static const unsigned long HEAP_SIZE         = 0x100000;    // 1 MB
     static const unsigned long PAGE_SIZE         = 0x200000;    // 2^21 2 MB
     // static const unsigned long PAGE_SIZE         = 0x1000;      // 2^12 4 kB

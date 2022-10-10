@@ -14,7 +14,7 @@ void Sv39_MMU::init()
 
     // free no page_table
     free(Memory_Map::RAM_BASE, pages(Memory_Map::RAM_BASE + (512 * 0x200000) - Memory_Map::RAM_BASE));
-    
+
     // free na stack
     free(Memory_Map::RAM_TOP + 1 - Traits<Machine>::STACK_SIZE, pages(Traits<Machine>::STACK_SIZE));
 }

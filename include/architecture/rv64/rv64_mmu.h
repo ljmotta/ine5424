@@ -86,7 +86,7 @@ public:
                 _pte[from] = pnn2pte(addr, flags);
                 addr += sizeof(Page);
             }
-        } 
+        }
 
     private:
         PT_Entry _pte[PT_ENTRIES];
