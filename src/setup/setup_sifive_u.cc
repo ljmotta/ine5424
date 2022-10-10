@@ -117,14 +117,14 @@ typedef unsigned long Reg;
 
 void Setup::start_mmu() {
     // create _master under the PAGE_TABLE address
-    Page_Directory *_master = MMU::current();
-    Reg pd = Traits<Machine>::PAGE_TABLE;
-    _master = new ((void *)pd) Page_Directory();
+    // Page_Directory *_master = MMU::current();
+    // Reg pd = Traits<Machine>::PAGE_TABLE;
+    // _master = new ((void *)pd) Page_Directory();
 
     // qtt of pages for (RAM_TOP + 1) - RAM_BASE
-    unsigned pages = MMU::pages(Traits<Machine>::RAM_TOP + 1 - Traits<Machine>::RAM_BASE);
-    unsigned entries = MMU::page_tables(pages);
-    _master->remap(pd, 0, entries, RV64_Flags::V);
+    // unsigned pages = MMU::pages(Traits<Machine>::RAM_TOP + 1 - Traits<Machine>::RAM_BASE);
+    // unsigned entries = MMU::page_tables(pages);
+    // _master->remap(pd, 0, entries, RV64_Flags::V);
 
     // Activate MMU here with satp MODE = 1000
     // CPU::satp((1UL << 63) | (Traits<Machine>::PAGE_TABLE >> 12));
