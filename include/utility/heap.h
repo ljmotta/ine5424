@@ -63,7 +63,7 @@ public:
         return addr;
     }
 
-    void free(void * ptr, unsigned int bytes) {
+    void free(void * ptr, unsigned long bytes) {
         db<Heaps>(TRC) << "Heap::free(this=" << this << ",ptr=" << ptr << ",bytes=" << bytes << ")" << endl;
 
         if(ptr && (bytes >= sizeof(Element))) {

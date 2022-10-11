@@ -39,12 +39,17 @@ private:
     typedef CPU::Reg Reg;
     typedef CPU::Phy_Addr Phy_Addr;
     typedef CPU::Log_Addr Log_Addr;
+    typedef MMU::RV64_Flags RV64_Flags;
+    typedef MMU::Page_Table Page_Table;
+    typedef MMU::Page_Directory Page_Directory;
+    typedef MMU::PT_Entry PT_Entry;
 
 public:
     Setup();
 
 private:
     void say_hi();
+    void start_mmu();
     void call_next();
 
 private:
@@ -68,6 +73,9 @@ Setup::Setup()
     // Print basic facts about this EPOS instance
     say_hi();
 
+    // Setup MMU
+    start_mmu();
+
     // SETUP ends here, so let's transfer control to the next stage (INIT or APP)
     call_next();
 }
@@ -86,9 +94,9 @@ void Setup::say_hi()
     kout << "  Mode:         " << ((Traits<Build>::MODE == Traits<Build>::LIBRARY) ? "library" : (Traits<Build>::MODE == Traits<Build>::BUILTIN) ? "built-in" : "kernel") << endl;
     kout << "  Processor:    " << Traits<Machine>::CPUS << " x RV" << Traits<CPU>::WORD_SIZE << " at " << Traits<CPU>::CLOCK / 1000000 << " MHz (BUS clock = " << Traits<CPU>::CLOCK / 1000000 << " MHz)" << endl;
     kout << "  Machine:      SiFive-U" << endl;
-    kout << "  Memory:       " << (RAM_TOP + 1 - RAM_BASE) / 1024 << " KB [" << reinterpret_cast<void *>(RAM_BASE) << ":" << reinterpret_cast<void *>(RAM_TOP) << "]" << endl;
-    kout << "  User memory:  " << (FREE_TOP - FREE_BASE) / 1024 << " KB [" << reinterpret_cast<void *>(FREE_BASE) << ":" << reinterpret_cast<void *>(FREE_TOP) << "]" << endl;
-    kout << "  I/O space:    " << (MIO_TOP + 1 - MIO_BASE) / 1024 << " KB [" << reinterpret_cast<void *>(MIO_BASE) << ":" << reinterpret_cast<void *>(MIO_TOP) << "]" << endl;
+    kout << "  Memory:       " << (RAM_TOP + 1 - RAM_BASE) / (1024*1024) << " MB [" << reinterpret_cast<void *>(RAM_BASE) << ":" << reinterpret_cast<void *>(RAM_TOP) << "]" << endl;
+    kout << "  User memory:  " << (FREE_TOP - FREE_BASE) / (1024*1024) << " MB [" << reinterpret_cast<void *>(FREE_BASE) << ":" << reinterpret_cast<void *>(FREE_TOP) << "]" << endl;
+    kout << "  I/O space:    " << (MIO_TOP + 1 - MIO_BASE) / (1024*1024) << " MB [" << reinterpret_cast<void *>(MIO_BASE) << ":" << reinterpret_cast<void *>(MIO_TOP) << "]" << endl;
     kout << "  Node Id:      ";
     if(si->bm.node_id != -1)
         kout << si->bm.node_id << " (" << Traits<Build>::NODES << ")" << endl;
@@ -105,6 +113,20 @@ void Setup::say_hi()
     kout << endl;
 }
 
+void Setup::start_mmu() {
+    // create _master under the PAGE_TABLE address
+    // Page_Directory *_master = MMU::current();
+    // unsigned long pd = Traits<Machine>::PAGE_TABLE;
+    // _master = new ((void *)pd) Page_Directory();
+
+    // qtt of pages for (RAM_TOP + 1) - RAM_BASE
+    // unsigned pages = MMU::pages(Traits<Machine>::RAM_TOP + 1 - Traits<Machine>::RAM_BASE);
+    // unsigned entries = MMU::page_tables(pages);
+    // _master->remap(pd, 0, entries, RV64_Flags::V);
+
+    // Activate MMU here with satp MODE = 1000
+    // CPU::satp((1UL << 63) | (Traits<Machine>::PAGE_TABLE >> 12));
+}
 
 void Setup::call_next()
 {
@@ -133,6 +155,7 @@ void _entry() // machine mode
     CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE - sizeof(long)); // set the stack pointer, thus creating a stack for SETUP
 
     Machine::clear_bss();
+    // CPU::satp(0);
 
     CPU::mstatus(CPU::MPP_M);                           // stay in machine mode at mret
 
