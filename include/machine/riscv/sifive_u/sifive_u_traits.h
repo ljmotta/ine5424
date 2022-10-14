@@ -22,18 +22,18 @@ public:
     static const unsigned long MAX_THREADS       = 16;
     static const unsigned long STACK_SIZE        = 0x10000;     // 64 kB (64 * 1024)
     static const unsigned long HEAP_SIZE         = 0x100000;    // 1 MB
-    static const unsigned long PAGE_SIZE         = 0x200000;    // 2^21 2 MB
-    // static const unsigned long PAGE_SIZE         = 0x1000;      // 2^12 4 kB
+    static const unsigned long PAGE_SIZE_LEAF    = 0x200000;    // 2^21 2 MB
+    static const unsigned long PAGE_SIZE         = 0x1000;      // 2^12 4 kB
     static const unsigned long PAGE_ENTRIES      = 512;         // 2^9 VPN[2]
 
     // Physical Memory
-    static const unsigned long RAM_BASE          = 0x80000000;                           // 2 GB
-    static const unsigned long RAM_TOP           = 0xffffffff;                           // 2 GB (0xFFFFFFFF - 0x80000000)
-    static const unsigned long MIO_BASE          = 0x00000000;
-    static const unsigned long MIO_TOP           = 0x1fffffff;                            // 512 MB (max 512 MB of MIO => RAM + MIO < 2 GB)
+    static const unsigned long RAM_BASE          = 0x0000000080000000;                    // 2 GB
+    static const unsigned long RAM_TOP           = 0x00000000ffffffff;                    // 2 GB (0xFFFFFFFF - 0x80000000)
+    static const unsigned long MIO_BASE          = 0x0000000000000000;
+    static const unsigned long MIO_TOP           = 0x000000001fffffff;                    // 512 MB (max 512 MB of MIO => RAM + MIO < 2 GB)
     static const unsigned long PAGE_TABLE        = RAM_BASE;                              // reserve PAGE_TABLES on the begining of the ram
     static const unsigned long BOOT_STACK        = RAM_TOP + 1 - STACK_SIZE;              // 64kB will be used as the stack's base, not the stack pointer
-    static const unsigned long FREE_BASE         = RAM_BASE + (PAGE_ENTRIES * PAGE_SIZE); // Free memory from RAM_BASE + PAGE_TABLE
+    static const unsigned long FREE_BASE         = RAM_BASE + ((PAGE_ENTRIES + 1) * PAGE_SIZE); // Free memory from RAM_BASE + PAGE_TABLE (1 page directory + 512 entries)
     static const unsigned long FREE_TOP          = BOOT_STACK;
 
     // Physical Memory at Boot
@@ -42,19 +42,17 @@ public:
     static const unsigned long IMAGE             = RAM_BASE + 0x100000; // RAM_BASE + 1 MB (will be part of the free memory at INIT, defines the maximum image size; if larger than 3 MB then adjust at SETUP)
 
     // Logical Memory
-    // Sv39, all bits from 63-39 must be equal to the bit 38
-    static const unsigned long APP_LOW           = 0x0000000080000000;      // 2 GB
-    static const unsigned long APP_HIGH          = 0x0000003fffffffff;      // 256 GB
+    static const unsigned long PHY_MEM           = 0x0000000080000000;
+    static const unsigned long APP_LOW           = 0x0000000100000000;      // 2 GB
+    static const unsigned long APP_HIGH          = 0x0000003fffffffff;      // 256 GB Sv39, all bits from 63-39 must be equal to the bit 38
     static const unsigned long APP_CODE          = APP_LOW;                 // 2 GB
     static const unsigned long APP_DATA          = APP_CODE + 0x400000;     // 4 MB
 
-    static const unsigned long INIT              = NOT_USED;      // previous= RAM_BASE + 512 KB (will be part of the free memory at INIT)
-    static const unsigned long PHY_MEM           = NOT_USED;      // disable phy_mem
-    static const unsigned long IO                = NOT_USED;      // IO not being used
+    static const unsigned long INIT              = NOT_USED;                // previous= RAM_BASE + 512 KB (will be part of the free memory at INIT)
+    static const unsigned long IO                = NOT_USED;                // IO not being used
 
     // Logical System Memory
-    // Sv39, all bits from 63-39 must be equal to the bit 38
-    static const unsigned long SYS               = 0xffffffc000000000;      // 256 GB
+    static const unsigned long SYS               = 0xffffffc000000000;      // 256 GB Sv39, all bits from 63-39 must be equal to the bit 38
     static const unsigned long SYS_CODE          = NOT_USED;
     static const unsigned long SYS_INFO          = NOT_USED;
     static const unsigned long SYS_PT            = NOT_USED;

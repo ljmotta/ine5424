@@ -78,10 +78,12 @@ public:
     constexpr static unsigned long page_tables(unsigned long pages) { return sizeof(Page) > sizeof(long) ? (pages + PT_ENTRIES - 1) / PT_ENTRIES : 0; }
 
     constexpr static unsigned long offset(const Log_Addr & addr) { return addr & (sizeof(Page) - 1); }
+    // TODO: bits need to be equal to last bit
     constexpr static unsigned long indexes(const Log_Addr & addr) { return addr & ~(sizeof(Page) - 1); }
 
     constexpr static unsigned long page(const Log_Addr & addr) { return (addr >> PAGE_SHIFT) & (PT_ENTRIES - 1); }
     constexpr static unsigned long directory(const Log_Addr & addr) { return addr >> DIRECTORY_SHIFT; }
+    // TODO: bits need to be equal to last bit
     constexpr static unsigned long index(const Log_Addr & base, const Log_Addr & addr) { return (addr - base) >> PAGE_SHIFT; }
 
     constexpr static Log_Addr align_page(const Log_Addr & addr) { return (addr + sizeof(Page) - 1) & ~(sizeof(Page) - 1); }

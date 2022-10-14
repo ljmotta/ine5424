@@ -38,12 +38,12 @@ public:
             X    = 1 << 3, // Executable (0 = not, 1= yes)
             U    = 1 << 4, // User accessible (0 = not, 1= yes)
             G    = 1 << 5, // Global (mapped in multiple PTs)
-            A    = 1 << 6, // Accessed (A == R?)
+            A    = 1 << 6, // Accessed (A == R)
             D    = 1 << 7, // Dirty (D == W)
             APP  = (V | R | W | X | U),
             SYS  = (V | R | W | X),
             LEAF = (R | W | X),
-            MASK = (1 << 8) - 1
+            MASK = (1 << 8) - 1,
         };
 
     public:
@@ -271,6 +271,7 @@ public:
 
 private:
     static void init();
+    // PHY está no mesmo endereço que a RAM
     static Log_Addr phy2log(const Phy_Addr & phy) { return phy; }
 
 private:
