@@ -21,8 +21,9 @@ void CPU::init()
 #endif
 
 #ifdef __PMU_H
-    if(Traits<PMU>::enabled)
-        PMU::init();
+    if(Traits<PMU>::enabled) {
+        // PMU::init();
+    }
 #endif
 }
 
