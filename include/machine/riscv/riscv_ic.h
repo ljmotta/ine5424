@@ -136,9 +136,9 @@ public:
 
     static Interrupt_Id int_id() {
         // Id is retrieved from [m|s]cause even if mip has the equivalent bit up, because only [m|s]cause can tell if it is an interrupt or an exception
-        Reg id = CPU::mcause();
+        Reg id = CPU::scause();
         if(id & INTERRUPT)
-            return irq2int(id & INT_MASK);
+            return (id & INT_MASK) + EXCS;
         else
             return (id & INT_MASK);
     }

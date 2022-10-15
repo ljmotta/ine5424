@@ -280,7 +280,7 @@ private:
     static Page_Directory *_master;
 };
 
-class MMU: public Sv39_MMU {};
+class MMU: public No_MMU {};
 
 __END_SYS
 
