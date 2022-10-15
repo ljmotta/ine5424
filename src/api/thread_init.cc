@@ -9,9 +9,12 @@ __BEGIN_SYS
 
 extern "C" { void __epos_app_entry(); }
 
+extern OStream kout, kerr;
+
 void Thread::init()
 {
     db<Init, Thread>(TRC) << "Thread::init()" << endl;
+    kout << "start2" << endl;
 
     Criterion::init();
 

@@ -251,7 +251,7 @@ public:
     static unsigned long allocable() { return _free.head() ? _free.head()->size() : 0; }
 
     // returns current PNN on SATP
-    static Page_Directory * volatile current() { return static_cast<Page_Directory * volatile>(phy2log(CPU::satp() << 12)); }
+    // static Page_Directory * volatile current() { return static_cast<Page_Directory * volatile>(phy2log(CPU::satp() << 12)); }
 
     static Phy_Addr physical(Log_Addr addr) {
         Page_Directory * pd = current();
@@ -268,6 +268,8 @@ public:
     // only necessary for multihart
     static void flush_tlb() {}
     static void flush_tlb(Log_Addr addr) {}
+
+    static Page_Directory * volatile current() { return _master; }
 
 private:
     static void init();

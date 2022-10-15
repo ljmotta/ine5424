@@ -371,6 +371,7 @@ public:
     static Reg mcause() { Reg r; ASM("csrr %0, mcause" : "=r"(r) : : ); return r; }
     static Reg mtval()  { Reg r; ASM("csrr %0, mtval" :  "=r"(r) : : ); return r; }
 
+    static void mtvec(Reg value) { ASM("csrw mtvec, %0" : : "r"(value) : "cc"); }
     static void mepc(Reg r)   { ASM("csrw mepc, %0" : : "r"(r) : "cc"); }
     static Reg  mepc() { Reg r; ASM("csrr %0, mepc" :  "=r"(r) : : ); return r; }
 
@@ -404,11 +405,14 @@ public:
     static Reg scause() { Reg r; ASM("csrr %0, scause" : "=r"(r) : : ); return r; }
     static Reg stval()  { Reg r; ASM("csrr %0, stval" :  "=r"(r) : : ); return r; }
 
+    static void stvec(Reg value) { ASM("csrw stvec, %0" : : "r"(value) : "cc"); }
+
     static void sepc(Reg r)   { ASM("csrw sepc, %0" : : "r"(r) : "cc"); }
     static Reg  sepc() { Reg r; ASM("csrr %0, sepc" :  "=r"(r) : : ); return r; }
 
     static void sret() { ASM("sret"); }
 
+    static void satp_zero() { ASM("csrw satp, zero"); }
     static void satp(Reg r) { ASM("csrw satp, %0" : : "r"(r) : "cc"); }
     static Reg  satp() { Reg r; ASM("csrr %0, satp" :  "=r"(r) : : ); return r; }
 
