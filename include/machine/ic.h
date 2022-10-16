@@ -10,7 +10,7 @@ __BEGIN_SYS
 class IC_Common
 {
 public:
-    typedef unsigned int Interrupt_Id;
+    typedef unsigned long Interrupt_Id;
     typedef void (* Interrupt_Handler)(Interrupt_Id);
 
     static const unsigned int UNSUPPORTED_INTERRUPT = ~1;

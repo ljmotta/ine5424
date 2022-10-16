@@ -29,7 +29,7 @@ if(Traits<IC>::hysterically_debugged) {
     // Restore context
     ASM("1:                                     \n");
     CPU::Context::pop(true);
-    CPU::iret();
+    CPU::sret();
 }
 
 void IC::dispatch()
@@ -43,7 +43,7 @@ void IC::dispatch()
     if(id == INT_SYS_TIMER)
         Timer::reset();
 
-    _int_vector[id](id);
+    // _int_vector[id](id); // = 0x0000000000000000;
 
     if(id >= EXCS)
         CPU::fr(0); // tell CPU::Context::pop(true) not to increment PC since it is automatically incremented for hardware interrupts
@@ -58,11 +58,11 @@ void IC::int_not(Interrupt_Id id)
 
 void IC::exception(Interrupt_Id id)
 {
-    CPU::Reg epc = CPU::mepc();
+    CPU::Reg epc = CPU::sepc();
     CPU::Reg sp = CPU::sp();
-    CPU::Reg status = CPU::mstatus();
-    CPU::Reg cause = CPU::mcause();
-    CPU::Reg tval = CPU::mtval();
+    CPU::Reg status = CPU::sstatus();
+    CPU::Reg cause = CPU::scause();
+    CPU::Reg tval = CPU::stval();
     Thread * thread = Thread::self();
 
     db<IC,System>(WRN) << "IC::Exception(" << id << ") => {" << hex << "thread=" << thread << ",epc=" << epc << ",sp=" << sp << ",status=" << status << ",cause=" << cause << ",tval=" << tval << "}" << dec;
@@ -123,7 +123,7 @@ __END_SYS
 
 static void print_context() {
     __USING_SYS
-    db<IC, System>(TRC) << "IC::leave:ctx=" << *reinterpret_cast<CPU::Context *>(CPU::sp() + 32) << endl;
+    db<IC, System>(TRC) << "IC::leave:ctx=" << *reinterpret_cast<CPU::Context *>(CPU::sp() + 64) << endl;
     CPU::fr(0);
 }
 

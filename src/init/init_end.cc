@@ -17,7 +17,7 @@ public:
         db<Init>(TRC) << "Init_End()" << endl;
 
         if(!Traits<System>::multithread) {
-            CPU::int_enable();
+            // CPU::int_enable();
             return;
         }
 

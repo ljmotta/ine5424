@@ -85,8 +85,8 @@ private:
     typedef CPU::Reg Reg;
 
 public:
-    static const unsigned int EXCS = CPU::EXCEPTIONS;
-    static const unsigned int IRQS = CLINT::IRQS;
+    static const unsigned int EXCS = CPU::EXCEPTIONS; // 16
+    static const unsigned int IRQS = CLINT::IRQS; // 16
     static const unsigned int INTS = EXCS + IRQS;
 
     using IC_Common::Interrupt_Id;
@@ -154,11 +154,11 @@ private:
     static void exception(Interrupt_Id i);
 
     // Physical handler
-    static void entry() __attribute((naked, aligned(4)));
+    static void entry() __attribute((naked, aligned(8)));
 
     static void init();
 
-    static volatile CPU::Reg32 & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg32 *>(Memory_Map::CLINT_BASE)[o / sizeof(CPU::Reg32)]; }
+    static volatile CPU::Reg & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg *>(Memory_Map::CLINT_BASE)[o / sizeof(CPU::Reg)]; }
 
 private:
     static Interrupt_Handler _int_vector[INTS];

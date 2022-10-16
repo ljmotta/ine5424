@@ -20,7 +20,7 @@ public:
     static const unsigned long NOT_USED          = 0xffffffffffffffff;  // Change to 64bits
     // Default Sizes and Quantities
     static const unsigned long MAX_THREADS       = 16;
-    static const unsigned long STACK_SIZE        = 0x10000;     // 64 kB (64 * 1024)
+    static const unsigned long STACK_SIZE        = 64 * 1024;     // 64 kB (64 * 1024)
     static const unsigned long HEAP_SIZE         = 0x100000;    // 1 MB
     static const unsigned long PAGE_SIZE_LEAF    = 0x200000;    // 2^21 2 MB
     static const unsigned long PAGE_SIZE         = 0x1000;      // 2^12 4 kB
@@ -28,7 +28,7 @@ public:
 
     // Physical Memory
     static const unsigned long RAM_BASE          = 0x0000000080000000;                           // 2 GB
-    static const unsigned long RAM_TOP           = 0x00000000ffffffff;                           // 2 GB (0xFFFFFFFF - 0x80000000)
+    static const unsigned long RAM_TOP           = 0x0000000087ffffff;                           // 2 GB (0xFFFFFFFF - 0x80000000)
     static const unsigned long MIO_BASE          = 0x0000000000000000;
     static const unsigned long MIO_TOP           = 0x000000001fffffff;                            // 512 MB (max 512 MB of MIO => RAM + MIO < 2 GB)
     static const unsigned long BOOT_STACK        = RAM_TOP + 1 - STACK_SIZE;              // 64kB will be used as the stack's base, not the stack pointer
