@@ -5,6 +5,22 @@
 #include <utility/elf.h>
 #include <utility/string.h>
 
+
+using namespace EPOS::S;
+typedef unsigned long Reg;
+
+// timer handler
+extern "C" [[gnu::interrupt, gnu::aligned(8)]] void _mmode_forward() {
+    Reg id = CPU::mcause();
+    if((id & CLINT::INT_MASK) == CLINT::IRQ_MAC_TIMER) {
+        Timer::reset();
+        CPU::sie(CPU::STI);
+    }
+    Reg interrupt_id = 1 << ((id & CLINT::INT_MASK) - 2);
+    if(CPU::int_enabled() && (CPU::sie() & (interrupt_id)))
+        CPU::mip(interrupt_id);
+}
+
 extern "C" {
     void _start();
 
@@ -128,14 +144,17 @@ void Setup::start_mmu() {
     // CPU::satp((1UL << 63) | (Traits<Machine>::PAGE_TABLE >> 12));
 }
 
-void Setup::call_next()
-{
+void Setup::call_next() {
     db<Setup>(INF) << "SETUP ends here!" << endl;
+    CLINT::stvec(CLINT::DIRECT, CPU::Reg(&_int_entry)); 
 
-    // Call the next stage
-    static_cast<void (*)()>(_start)();
+    // CPU::satp((1UL << 63) | (reinterpret_cast<unsigned long>(page_directory) >> 12));
+    CPU::sepc(CPU::Reg(&_start));
 
-    // SETUP is now part of the free memory and this point should never be reached, but, just in case ... :-)
+    CPU::sstatus(CPU::SPP_S);
+    CPU::sie(CPU::SSI | CPU::STI | CPU::SEI);
+
+    CPU::sret();
     db<Setup>(ERR) << "OS failed to init!" << endl;
 }
 
@@ -145,20 +164,30 @@ using namespace EPOS::S;
 
 void _entry() // machine mode
 {
-    if(CPU::mhartid() != 0)                             // SiFive-U requires 2 cores, so we disable core 1 here
+    if(CPU::mhartid() == 0)                             // SiFive-U requires 2 cores, so we disable core 1 here
         CPU::halt();
 
-    CPU::mstatusc(CPU::MIE);                            // disable interrupts (they will be reenabled at Init_End)
-    CPU::mies(CPU::MSI);                                // enable interrupts generation by CLINT
-    CLINT::mtvec(CLINT::DIRECT, _int_entry);            // setup a preliminary machine mode interrupt handler pointing it to _int_entry
+    CPU::satp(0);
+    Machine::clear_bss();
 
     CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE - sizeof(long)); // set the stack pointer, thus creating a stack for SETUP
 
-    Machine::clear_bss();
-    // CPU::satp(0);
+    // remove protection from supervisor and user;
+    ASM("li t4, 0x1f            \n"                         // Set up the Physical Memory Protection registers correctly
+        "csrw pmpcfg0, t4       \n"
+        "li t5, (1 << 55) - 1   \n"
+        "csrw pmpaddr0, t5      \n");
 
-    CPU::mstatus(CPU::MPP_M);                           // stay in machine mode at mret
+    // Delegate all traps to supervisor
+    // Timer will not be delegated due to architecture reasons.
+    CPU::mideleg(0xffff);            // delegate Software, Timer and External interrupts to Supervisor CPU::SSI | CPU::STI | CPU::SEI
+    CPU::medeleg(0xffff);            // delegate exceptions to Supervisor
 
+    CPU::int_disable();                                     // disable interrupts (they will be reenabled at Init_End)
+    CPU::mies(CPU::MSI);                                    // enable interrupts generation by CLINT
+    CLINT::mtvec(CLINT::DIRECT, CPU::Reg(&_mmode_forward)); // setup a preliminary machine mode interrupt handler pointing it to _int_entry
+
+    CPU::mstatus(CPU::MPP_S | CPU::MPIE);               // change to supervirsor
     CPU::mepc(CPU::Reg(&_setup));                       // entry = _setup
     CPU::mret();                                        // enter supervisor mode at setup (mepc) with interrupts enabled (mstatus.mpie = true)
 }
