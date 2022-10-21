@@ -172,11 +172,11 @@ void _entry() // machine mode
 
     CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE - sizeof(long)); // set the stack pointer, thus creating a stack for SETUP
 
-    // remove protection from supervisor and user;
-    ASM("li t4, 0x1f            \n"                         // Set up the Physical Memory Protection registers correctly
-        "csrw pmpcfg0, t4       \n"
-        "li t5, (1 << 55) - 1   \n"
-        "csrw pmpaddr0, t5      \n");
+    // Set up the Physical Memory Protection registers correctly
+    // A = NAPOT, X, R, W
+    CPU::pmpcfg0(0x1f);
+    // All memory
+    CPU::pmpaddr0((1UL << 55) - 1);
 
     // Delegate all traps to supervisor
     // Timer will not be delegated due to architecture reasons.
@@ -185,7 +185,7 @@ void _entry() // machine mode
 
     CPU::int_disable();                                     // disable interrupts (they will be reenabled at Init_End)
     CPU::mies(CPU::MSI);                                    // enable interrupts generation by CLINT
-    CLINT::mtvec(CLINT::DIRECT, CPU::Reg(&_mmode_forward)); // setup a preliminary machine mode interrupt handler pointing it to _int_entry
+    CLINT::mtvec(CLINT::DIRECT, CPU::Reg(&_mmode_forward)); // setup a preliminary machine mode interrupt handler pointing it to _mmode_forward
 
     CPU::mstatus(CPU::MPP_S | CPU::MPIE);               // change to supervirsor
     CPU::mepc(CPU::Reg(&_setup));                       // entry = _setup
