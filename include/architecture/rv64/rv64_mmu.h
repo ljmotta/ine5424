@@ -122,9 +122,9 @@ private:
     // A list of frames = pages (4kb)
     typedef Grouping_List<Frame> List;
 
-    static const unsigned long RAM_BASE = Memory_Map::RAM_BASE;
-    static const unsigned long PHY_MEM = Memory_Map::PHY_MEM;
-    static const unsigned long APP_LOW = Memory_Map::APP_LOW;
+    static const unsigned long long RAM_BASE = Memory_Map::RAM_BASE;
+    static const unsigned long long PHY_MEM = Memory_Map::PHY_MEM;
+    static const unsigned long long APP_LOW = Memory_Map::APP_LOW;
 
 public:
     // Page_Table
@@ -392,7 +392,10 @@ public:
         db<MMU>(TRC) << "MMU::free(frame=" << frame << ",n=" << n << ")" << endl;
 
         if(frame && n) {
-            List::Element * e = new (phy2log(frame)) List::Element(frame, n);
+            Log_Addr place = phy2log(frame);
+            db<MMU>(TRC) << "MMU::free(place=" << place << ")" << endl;
+            List::Element * e = new (place) List::Element(frame, n);
+            db<MMU>(TRC) << "MMU::free(e=" << e << ")" << endl;
             List::Element * m1, * m2;
             _free.insert_merging(e, &m1, &m2);
         }
@@ -425,6 +428,7 @@ public:
 private:
     static void init();
     static Log_Addr phy2log(Phy_Addr phy) {
+        db<MMU>(TRC) << "MMU::phy2log(phy=" << phy << ", RAM_BASE=" << RAM_BASE << ", PHY_MEM=" << PHY_MEM <<  ")" << endl;
         if (RAM_BASE < PHY_MEM) {
             return Log_Addr(phy + (PHY_MEM - RAM_BASE));
         }

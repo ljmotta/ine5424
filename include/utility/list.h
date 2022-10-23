@@ -241,7 +241,17 @@ namespace List_Elements
         typedef Doubly_Linked_Grouping Element;
 
     public:
-        Doubly_Linked_Grouping(const T * o, long s): _object(o), _size(s), _prev(0), _next(0) {}
+        Doubly_Linked_Grouping(const T * o, unsigned long s) {
+            // sizeof(T) = 4096 ??? sizeof frame? 512 * 8;
+            // sizeof(T*) = 8
+            db<Lists>(TRC) << "Doubly_Linked_Grouping::sizeof(T)=" << sizeof(T*) << ")" << endl;
+            db<Lists>(TRC) << "Doubly_Linked_Grouping::Doubly_Linked_Grouping(o=" << o << ")" << endl;
+            _object = o;
+            db<Lists>(TRC) << "Doubly_Linked_Grouping::Doubly_Linked_Grouping(s=" << s << ")" << endl;
+            _size = s;
+            _prev = 0;
+            _next = 0;
+        }
 
         T * object() const { return const_cast<T *>(_object); }
 

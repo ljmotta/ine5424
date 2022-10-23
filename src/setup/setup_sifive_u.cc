@@ -164,13 +164,17 @@ using namespace EPOS::S;
 
 void _entry() // machine mode
 {
-    if(CPU::mhartid() == 0)                             // SiFive-U requires 2 cores, so we disable core 1 here
+    // SiFive-U core 0 doesn't have MMU
+    if(CPU::mhartid() == 0)
         CPU::halt();
 
+    // ensure that sapt is 0
     CPU::satp(0);
     Machine::clear_bss();
 
-    CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE - sizeof(long)); // set the stack pointer, thus creating a stack for SETUP
+    // need to check?
+    // set the stack pointer, thus creating a stack for SETUP
+    CPU::sp(Memory_Map::BOOT_STACK + Traits<Machine>::STACK_SIZE - sizeof(long));
 
     // Set up the Physical Memory Protection registers correctly
     // A = NAPOT, X, R, W
@@ -180,14 +184,16 @@ void _entry() // machine mode
 
     // Delegate all traps to supervisor
     // Timer will not be delegated due to architecture reasons.
-    CPU::mideleg(0xffff);            // delegate Software, Timer and External interrupts to Supervisor CPU::SSI | CPU::STI | CPU::SEI
-    CPU::medeleg(0xffff);            // delegate exceptions to Supervisor
+    CPU::mideleg(CPU::SSI | CPU::STI | CPU::SEI);
+    CPU::medeleg(0xffff);
 
-    CPU::int_disable();                                     // disable interrupts (they will be reenabled at Init_End)
-    CPU::mies(CPU::MSI);                                    // enable interrupts generation by CLINT
+    CPU::mies(CPU::MSI | CPU::MTI | CPU::MEI);              // enable interrupts generation by CLINT
+    CPU::mint_disable();                                    // (mstatus) disable interrupts (they will be reenabled at Init_End)
     CLINT::mtvec(CLINT::DIRECT, CPU::Reg(&_mmode_forward)); // setup a preliminary machine mode interrupt handler pointing it to _mmode_forward
 
-    CPU::mstatus(CPU::MPP_S | CPU::MPIE);               // change to supervirsor
+    // MPP_S = change to supervirsor
+    // MPIE = otherwise we won't ever receive interrupts
+    CPU::mstatus(CPU::MPP_S | CPU::MPIE);
     CPU::mepc(CPU::Reg(&_setup));                       // entry = _setup
     CPU::mret();                                        // enter supervisor mode at setup (mepc) with interrupts enabled (mstatus.mpie = true)
 }
