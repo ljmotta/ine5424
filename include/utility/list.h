@@ -245,6 +245,8 @@ namespace List_Elements
             // sizeof(T) = 4096 ??? sizeof frame? 512 * 8;
             // sizeof(T*) = 8
             db<Lists>(TRC) << "Doubly_Linked_Grouping::sizeof(T)=" << sizeof(T*) << ")" << endl;
+            db<Lists>(TRC) << "Doubly_Linked_Grouping::Doubly_Linked_Grouping(o*=" << (*o) << ")" << endl;
+            db<Lists>(TRC) << "Doubly_Linked_Grouping::Doubly_Linked_Grouping(&o=" << &o << ")" << endl;
             db<Lists>(TRC) << "Doubly_Linked_Grouping::Doubly_Linked_Grouping(o=" << o << ")" << endl;
             _object = o;
             db<Lists>(TRC) << "Doubly_Linked_Grouping::Doubly_Linked_Grouping(s=" << s << ")" << endl;

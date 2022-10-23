@@ -8,6 +8,7 @@
 #include <utility/list.h>
 #include <utility/debug.h>
 #include <architecture/cpu.h>
+#include <architecture/mmu.h>
 
 __BEGIN_SYS
 
@@ -114,7 +115,7 @@ public:
 
 
 // use 3 levels of 2^9 entries with 2^12 page size;
-class Sv39_MMU: public RV64_MMU_Common<3, 9, 12>
+class MMU: public RV64_MMU_Common<3, 9, 12>
 {
     friend class CPU;
 
@@ -143,7 +144,7 @@ public:
             }
             else {
                 for( ; from < to; from++) {
-                    _pte[from] = pnn2pte(alloc(1), flags);
+                    _pte[from] = phy2pte(alloc(1), flags);
                 }
             }
         }
@@ -151,7 +152,7 @@ public:
         void remap(Phy_Addr addr, unsigned long from, unsigned long to, Flags flags) {
             addr = align_page(addr);
             for( ; from < to; from++) {
-                _pte[from] = pnn2pte(addr, flags);
+                _pte[from] = phy2pte(addr, flags);
                 addr += sizeof(Page);
             }
         }
@@ -252,7 +253,7 @@ public:
 
         void detach(const Chunk & chunk) {
             for(unsigned long i = 0; i < PT_ENTRIES; i++) {
-                if(indexes((*_pd)[i]) == indexes(pnn2pde(chunk.pt()))) {
+                if(indexes((*_pd)[i]) == indexes(phy2pde(chunk.pt()))) {
                     detach(i, chunk.pt(), chunk.pts());
                     return;
                 }
@@ -321,16 +322,16 @@ public:
             // pd lv1 doens't exist?
             if (!((*_pd)[lv2])) {
                 // create pd lv1.. correct?
-                (*_pd)[lv2] = pnn2pde(Phy_Addr(directory << DIRECTORY_SHIFT));
+                (*_pd)[lv2] = phy2pde(Phy_Addr(directory << DIRECTORY_SHIFT));
             }
             for(unsigned long i = lv1; i < to; i++, pt++) {
-                (*_pd)[lv2][i] = pnn2pde(Phy_Addr(pt));
+                (*_pd)[lv2][i] = phy2pde(Phy_Addr(pt));
             }
             // if requires next lv2 to attach...
             unsigned int remaining = n - ((PT_ENTRIES - 1) - lv1);
             if (remaining > 0) {
                 for(unsigned long i = lv1; i < remaining; i++, pt++) {
-                    (*_pd)[lv2 + 1][i] = pnn2pde(Phy_Addr(pt));
+                    (*_pd)[lv2 + 1][i] = phy2pde(Phy_Addr(pt));
                 }
             }            
             return true;
@@ -361,7 +362,7 @@ public:
     };
 
 public:
-    Sv39_MMU() {}
+    MMU() {}
 
     // _free is a list of frames.
     static Phy_Addr alloc(unsigned long frames = 1) {
@@ -404,7 +405,8 @@ public:
     static unsigned long allocable() { return _free.head() ? _free.head()->size() : 0; }
 
     // returns current PNN on SATP
-    static Page_Directory * volatile current() { return static_cast<Page_Directory * volatile>(phy2log(CPU::satp() << 12)); }
+    // static Page_Directory * volatile current() { return static_cast<Page_Directory * volatile>(phy2log(CPU::satp() << 12)); }
+    static Page_Directory * volatile current() { return _master; }
 
     static Phy_Addr physical(Log_Addr addr) {
         Page_Directory * pd = current();
@@ -413,16 +415,16 @@ public:
     }
 
     // PNN -> PTE
-    static PT_Entry pnn2pte(Phy_Addr frame, Flags flags) {
+    static PT_Entry phy2pte(Phy_Addr frame, Flags flags) {
         return ((frame & ~Flags::MASK) >> 2) | flags | Flags::ACCESSED | Flags::DIRTY;
     }
     // PNN -> PDE (X | R | W = 0)
-    static PD_Entry pnn2pde(Phy_Addr frame) {
+    static PD_Entry phy2pde(Phy_Addr frame) {
         return ((frame & ~Flags::MASK) >> 2) | Flags::VALID;
     }
 
     // only necessary for multihart
-    static void flush_tlb() {}
+    static void flush_tlb() { ASM("sfence.vma"); }
     static void flush_tlb(Log_Addr addr) {}
 
 private:
@@ -444,7 +446,7 @@ private:
     static Page_Directory *_master;
 };
 
-class MMU: public Sv39_MMU {};
+// class MMU: public Sv39_MMU {};
 
 __END_SYS
 

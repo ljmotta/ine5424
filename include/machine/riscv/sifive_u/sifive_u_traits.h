@@ -32,9 +32,9 @@ public:
     static const unsigned long MIO_BASE          = 0x0000000000000000;
     static const unsigned long MIO_TOP           = 0x000000001fffffff;                            // 512 MB (max 512 MB of MIO => RAM + MIO < 2 GB)
     static const unsigned long BOOT_STACK        = RAM_TOP + 1 - STACK_SIZE;              // 64kB will be used as the stack's base, not the stack pointer
+    static const unsigned long PAGE_TABLES       = (BOOT_STACK + 1) - ((1 + PAGE_ENTRIES + (PAGE_ENTRIES * PAGE_ENTRIES)) * PAGE_SIZE); // reserve PAGE_TABLES on the begining of the ram (1 PNN[2] + 512 PNN[1])
     static const unsigned long FREE_BASE         = RAM_BASE;                              // Free memory from RAM_BASE + PAGE_TABLE
     static const unsigned long FREE_TOP          = BOOT_STACK;
-    static const unsigned long PAGE_TABLE        = RAM_BASE - ((PAGE_ENTRIES + 1) * PAGE_SIZE); // reserve PAGE_TABLES on the begining of the ram (1 PNN[2] + 512 PNN[1])
 
     // Physical Memory at Boot
     // o setup é usado UMA vez, quando chega em supervisor, ele não é mais util
