@@ -29,7 +29,7 @@ protected:
     static const unsigned long DIRECTORY_SHIFT = OFFSET_BITS + PAGE_BITS; // 21
     static const unsigned long PAGE_TABLE_MASK = (1UL << (DIRECTORY_SHIFT) - 1); // 1..20
     static const unsigned long LOGICAL_ADDRESS_SIZE = ((PAGE_BITS * LEVELS) + OFFSET_BITS); // 39 for Sv39
-    static const unsigned long LOGICAL_ADDRESS_MASK = (1UL << ADDRESS_SIZE) - 1; // 0 to 38 for Sv39
+    static const unsigned long LOGICAL_ADDRESS_MASK = (1UL << LOGICAL_ADDRESS_SIZE) - 1; // 0 to 38 for Sv39
 
 public:
     // Memory page
@@ -41,7 +41,7 @@ public:
     typedef Phy_Addr PD_Entry;
 
     // Page Flags
-    class RV64_Flags
+    class Flags
     {
     public:
         enum {
@@ -53,26 +53,29 @@ public:
             GLOBAL      = 1 << 5, // All address spaces
             ACCESSED    = 1 << 6, // Accessed, set to 1
             DIRTY       = 1 << 7, // Dirty, set to 1
+            CT          = 1 << 8, // Contiguous (reserved for use by supervisor RSW)
+            MIO         = 1 << 9, // I/O (reserved for use by supervisor RSW)
 
             SYS  = (VALID | READ | WRITE | EXECUTE),
             APP  = (VALID | READ | WRITE | EXECUTE | USER),
             APPC = (VALID | READ | EXECUTE | USER),
             APPD = (VALID | READ | WRITE | USER),
+            IO   = (SYS | MIO),
 
             MASK = ((0x3ffUL << 54) | (0xfffUL))
         };
 
     public:
-        RV64_Flags() {}
-        RV64_Flags(const RV64_Flags & f) : _flags(f._flags) {}
-        RV64_Flags(unsigned int f) : _flags(f) {}
+        Flags() {}
+        Flags(const Flags & f) : _flags(f._flags) {}
+        Flags(unsigned long f) : _flags(f) {}
 
-        operator unsigned int() const { return _flags; }
+        operator unsigned long() const { return _flags; }
 
-        friend Debug & operator<<(Debug & db, RV64_Flags f) { db << hex << f._flags << dec; return db; }
+        friend Debug & operator<<(Debug & db, Flags f) { db << hex << f._flags << dec; return db; }
 
     private:
-        unsigned int _flags;
+        unsigned long _flags;
     };
 
     // Number of entries in Page_Table and Page_Directory 9 = 512
@@ -90,16 +93,14 @@ public:
     constexpr static unsigned long offset(const Log_Addr & addr) { return addr & (sizeof(Page) - 1); }
     // should signal extend last bit
     constexpr static unsigned long indexes(const Log_Addr & addr) {
-        unsigned long addr_msb = addr >> (LOGICAL_ADDRESS_SIZE - 1) // 38
+        unsigned long addr_msb = addr >> (LOGICAL_ADDRESS_SIZE - 1); // 38
         if (addr_msb) {
-            addr |= ~LOGICAL_ADDRESS_MASK;
-        } else {
-            addr &= LOGICAL_ADDRESS_MASK;
+            return (addr | ~LOGICAL_ADDRESS_MASK) & ~(sizeof(Page) - 1);
         }
-        return addr & ~(sizeof(Page) - 1);
+        return (addr & LOGICAL_ADDRESS_MASK) & ~(sizeof(Page) - 1);
     }
 
-    constexpr static unsigned long page(const Log_Addr & addr, unsigned int level) { return (addr >> (PAGE_SHIFT)) & PT_MASK; }
+    constexpr static unsigned long page(const Log_Addr & addr) { return (addr >> (PAGE_SHIFT)) & PT_MASK; }
     // returns the entire directory, all levels;
     constexpr static unsigned long directory(const Log_Addr & addr) { return (addr >> DIRECTORY_SHIFT) & ((1UL << (PAGE_BITS * LEVELS - 1)) - 1); }
     constexpr static unsigned long directory_lv1(const unsigned long directory) { return directory & PT_MASK; }
@@ -118,10 +119,11 @@ class Sv39_MMU: public RV64_MMU_Common<3, 9, 12>
     friend class CPU;
 
 private:
-    // groupping list of frames
+    // A list of frames = pages (4kb)
     typedef Grouping_List<Frame> List;
 
     static const unsigned long RAM_BASE = Memory_Map::RAM_BASE;
+    static const unsigned long PHY_MEM = Memory_Map::PHY_MEM;
     static const unsigned long APP_LOW = Memory_Map::APP_LOW;
 
 public:
@@ -133,8 +135,8 @@ public:
 
         PT_Entry & operator[](unsigned long i) { return _pte[i]; }
 
-        // maps addresses
-        void map(unsigned long from, unsigned long to, RV64_Flags flags) {
+        // já foi feito a alocaçao com calloc, porque alloc de novo?
+        void map(unsigned long from, unsigned long to, Flags flags) {
             Phy_Addr * addr = alloc(to - from);
             if(addr) {
                 remap(addr, from, to, flags);
@@ -146,7 +148,7 @@ public:
             }
         }
 
-        void remap(Phy_Addr addr, unsigned long from, unsigned long to, RV64_Flags flags) {
+        void remap(Phy_Addr addr, unsigned long from, unsigned long to, Flags flags) {
             addr = align_page(addr);
             for( ; from < to; from++) {
                 _pte[from] = pnn2pte(addr, flags);
@@ -158,20 +160,24 @@ public:
         PT_Entry _pte[PT_ENTRIES];
     };
 
-    // Chunk (for Segment) -> é passado um endereço físico, e 
-    // gerado endereços lógicos.
+    // Chunk (for Segment) -> é mapeado um pedaço físico em lógico. 
     class Chunk
     {
     public:
         Chunk() {}
 
+        // cria um chunk com quantidade de bytes e flags.
+        // _to = quantidade de páginas
+        // _pts = quantidade total de páginas de 4kb.
+        // _pt = endereço físico da alocação, um array de page tables; é alocado a quantidade de páginas necessária
+        // 
         Chunk(unsigned long bytes, Flags flags)
-        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(RV64_Flags(flags)), _pt(calloc(_pts)) {
+        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Flags(flags)), _pt(calloc(_pts)) {
             _pt->map(_from, _to, _flags);
         }
 
         Chunk(Phy_Addr phy_addr, unsigned long bytes, Flags flags)
-        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(RV64_Flags(flags)), _pt(calloc(_pts)) {
+        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Flags(flags)), _pt(calloc(_pts)) {
             _pt->remap(phy_addr, _from, _to, flags);
         }
 
@@ -187,7 +193,7 @@ public:
         // 512 tables lv0 = 1gb = 1 table lv 1
         // quantas tabelas de paginas foram necessárias para alocar o chunk
         unsigned long pts() const { return _pts; }
-        RV64_Flags flags() const { return _flags; }
+        Flags flags() const { return _flags; }
         // tabela que o chunk ta mapeado
         Page_Table * pt() const { return _pt; }
         unsigned long size() const { return (_to - _from) * sizeof(Page); }
@@ -198,14 +204,14 @@ public:
         unsigned long _from;
         unsigned long _to;
         unsigned long _pts;
-        RV64_Flags _flags;
+        Flags _flags;
         Page_Table * _pt;
     };
 
     // Page Directory
     typedef Page_Table Page_Directory;
 
-    // Directory (for Address_Space) -> logical!
+    // Directory (for Address_Space) -> adiciona um chunck ao address space!
     class Directory
     {
     public:
@@ -225,8 +231,8 @@ public:
 
         // attach a chunk to page directory, by default starts at app_low
         // directory returns the entire directory, for sv39 returns lv2 and lv1
-        Log_Addr attach(const Chunk & chunk, unsigned long directory = directory(APP_LOW)) {
-            for(unsigned long i = directory; i < PT_ENTRIES; i++) { // 0..511
+        Log_Addr attach(const Chunk & chunk, unsigned long dir = directory(APP_LOW)) {
+            for(unsigned long i = dir; i < PT_ENTRIES; i++) { // 0..511
                 // attach(entire directory, chunk page table, qtt of page tables, flags)
                 if(attach(i, chunk.pt(), chunk.pts(), chunk.flags())) {
                     return i << DIRECTORY_SHIFT;
@@ -271,7 +277,7 @@ public:
     private:
         // attach a page table to pd... n = qtt of pages necessary
         // need to recalc n. if n > PAGE_BITS * PAGE_BITS, need to check lv2, alloc bigger than 1gb;
-        bool attach(unsigned long directory, const Page_Table * pt, unsigned long n, RV64_Flags flags) {
+        bool attach(unsigned long directory, const Page_Table * pt, unsigned long n, Flags flags) {
             unsigned long lv1 = directory_lv1(directory);
             unsigned long lv2 = directory_lv2(directory);
             // need to check in the next lv2 directory
@@ -321,7 +327,7 @@ public:
                 (*_pd)[lv2][i] = pnn2pde(Phy_Addr(pt));
             }
             // if requires next lv2 to attach...
-            unsigned int remaining = n - ((PT_ENTRIES - 1) - lv1;
+            unsigned int remaining = n - ((PT_ENTRIES - 1) - lv1);
             if (remaining > 0) {
                 for(unsigned long i = lv1; i < remaining; i++, pt++) {
                     (*_pd)[lv2 + 1][i] = pnn2pde(Phy_Addr(pt));
@@ -341,7 +347,7 @@ public:
             for(unsigned long i = lv1; i < to + n; i++) {
                 (*_pd)[lv2][i] = 0;
             }
-            unsigned int remaining = n - ((PT_ENTRIES - 1) - lv1;
+            unsigned int remaining = n - ((PT_ENTRIES - 1) - lv1);
             if (remaining > 0) {
                 for(unsigned long i = lv1; i < remaining; i++) {
                     (*_pd)[lv2 + 1][i] = 0;
@@ -357,6 +363,7 @@ public:
 public:
     Sv39_MMU() {}
 
+    // _free is a list of frames.
     static Phy_Addr alloc(unsigned long frames = 1) {
         Phy_Addr phy(false);
 
@@ -377,6 +384,8 @@ public:
     }
 
     // n = qtt of frames
+    // starting the system, we free the entire ram;
+    // the pagging system is only in virtual memory...
     static void free(Phy_Addr frame, unsigned long n = 1) {
         frame = indexes(frame); // frame without offset
 
@@ -401,9 +410,13 @@ public:
     }
 
     // PNN -> PTE
-    static PT_Entry pnn2pte(Phy_Addr frame, RV64_Flags flags) { return ((frame & ~RV64_Flags::MASK) >> 2) | flags; }
-    // PNN -> PDE (Page Directory Entry = pte, but with X | R | W = 0)
-    static PD_Entry pnn2pde(Phy_Addr frame) { return ((frame & ~RV64_Flags::MASK) >> 2) | RV64_Flags::V; }
+    static PT_Entry pnn2pte(Phy_Addr frame, Flags flags) {
+        return ((frame & ~Flags::MASK) >> 2) | flags | Flags::ACCESSED | Flags::DIRTY;
+    }
+    // PNN -> PDE (X | R | W = 0)
+    static PD_Entry pnn2pde(Phy_Addr frame) {
+        return ((frame & ~Flags::MASK) >> 2) | Flags::VALID;
+    }
 
     // only necessary for multihart
     static void flush_tlb() {}
@@ -411,7 +424,16 @@ public:
 
 private:
     static void init();
-    static Log_Addr phy2log(const Phy_Addr & phy) { return phy; }
+    static Log_Addr phy2log(Phy_Addr phy) {
+        if (RAM_BASE < PHY_MEM) {
+            return Log_Addr(phy + (PHY_MEM - RAM_BASE));
+        }
+        if (RAM_BASE > PHY_MEM) {
+            return Log_Addr(phy - (RAM_BASE - PHY_MEM));
+        }
+        // RAM_BASE == PHY_MEM
+        return Log_Addr(phy);
+    }
 
 private:
     static List _free;

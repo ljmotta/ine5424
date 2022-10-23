@@ -55,7 +55,7 @@ private:
     typedef CPU::Reg Reg;
     typedef CPU::Phy_Addr Phy_Addr;
     typedef CPU::Log_Addr Log_Addr;
-    typedef MMU::RV64_Flags RV64_Flags;
+    typedef MMU::Flags RV64_Flags;
     typedef MMU::Page_Table Page_Table;
     typedef MMU::Page_Directory Page_Directory;
     typedef MMU::PT_Entry PT_Entry;
