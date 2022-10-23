@@ -89,7 +89,15 @@ public:
 
     constexpr static unsigned long offset(const Log_Addr & addr) { return addr & (sizeof(Page) - 1); }
     // should signal extend last bit
-    constexpr static unsigned long indexes(const Log_Addr & addr) { return addr & ~(sizeof(Page) - 1); }
+    constexpr static unsigned long indexes(const Log_Addr & addr) {
+        unsigned long addr_msb = addr >> (LOGICAL_ADDRESS_SIZE - 1) // 38
+        if (addr_msb) {
+            addr |= ~LOGICAL_ADDRESS_MASK;
+        } else {
+            addr &= LOGICAL_ADDRESS_MASK;
+        }
+        return addr & ~(sizeof(Page) - 1);
+    }
 
     constexpr static unsigned long page(const Log_Addr & addr, unsigned int level) { return (addr >> (PAGE_SHIFT)) & PT_MASK; }
     // returns the entire directory, all levels;
@@ -125,17 +133,20 @@ public:
 
         PT_Entry & operator[](unsigned long i) { return _pte[i]; }
 
-        void map(long from, long to, RV64_Flags flags) {
+        // maps addresses
+        void map(unsigned long from, unsigned long to, RV64_Flags flags) {
             Phy_Addr * addr = alloc(to - from);
-            if(addr)
+            if(addr) {
                 remap(addr, from, to, flags);
-            else
+            }
+            else {
                 for( ; from < to; from++) {
                     _pte[from] = pnn2pte(alloc(1), flags);
                 }
+            }
         }
 
-        void remap(Phy_Addr addr, long from, long to, RV64_Flags flags) {
+        void remap(Phy_Addr addr, unsigned long from, unsigned long to, RV64_Flags flags) {
             addr = align_page(addr);
             for( ; from < to; from++) {
                 _pte[from] = pnn2pte(addr, flags);
@@ -147,7 +158,8 @@ public:
         PT_Entry _pte[PT_ENTRIES];
     };
 
-    // Chunk (for Segment)
+    // Chunk (for Segment) -> é passado um endereço físico, e 
+    // gerado endereços lógicos.
     class Chunk
     {
     public:
@@ -164,8 +176,9 @@ public:
         }
 
         ~Chunk() {
-            for( ; _from < _to; _from++)
+            for( ; _from < _to; _from++) {
                 free((*static_cast<Page_Table *>(phy2log(_pt)))[_from]);
+            }
             free(_pt, _pts);
         }
 
@@ -192,7 +205,7 @@ public:
     // Page Directory
     typedef Page_Table Page_Directory;
 
-    // Directory (for Address_Space)
+    // Directory (for Address_Space) -> logical!
     class Directory
     {
     public:
