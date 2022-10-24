@@ -62,7 +62,12 @@ private:
     static const unsigned long SYS_STACK        = Memory_Map::SYS_STACK;
     static const unsigned long APP_CODE         = Memory_Map::APP_CODE;
     static const unsigned long APP_DATA         = Memory_Map::APP_DATA;
-
+    static const unsigned long PAGE_ENTRIES      = Traits<Machine>::PAGE_ENTRIES;               // quantidade de entradas numa página
+    static const unsigned long PAGE_SIZE         = Traits<Machine>::PAGE_SIZE;  // 8 * 512 = 4kb
+    static const unsigned long PT_ENTRIES_LV0    = 512;               // 512 entradas de 4kB
+    static const unsigned long PD_ENTRIES_LV1    = 512;                // 32 entradas de 2MB
+    static const unsigned long PD_ENTRIES_LV2    = 512;                 // 1 entrada LV2
+    static const unsigned long ENTRIES_SIZE      = (1 + PD_ENTRIES_LV2 + PD_ENTRIES_LV1 + PT_ENTRIES_LV0) * PAGE_SIZE; // 0x221000 ~2MB
 
     // Architecture Imports
     typedef CPU::Reg Reg;
@@ -84,9 +89,6 @@ public:
 
 private:
     void say_hi();
-    void build_pmm();
-    void setup_sys_pt();
-    void setup_sys_pd();
     void enable_paging();
     void call_next();
     void panic() { Machine::panic(); }
@@ -109,13 +111,9 @@ Setup::Setup()
     db<Setup>(TRC) << "Setup(si=" << reinterpret_cast<void *>(si) << ",sp=" << CPU::sp() << ")" << endl;
     db<Setup>(INF) << "Setup:si=" << *si << endl;
 
-    build_pmm();
-
     // Print basic facts about this EPOS instance
     say_hi();
 
-    setup_sys_pt();
-    setup_sys_pd();
     enable_paging();
 
     // SETUP ends here, so let's transfer control to the next stage (INIT or APP)
@@ -155,200 +153,69 @@ void Setup::say_hi()
     kout << endl;
 }
 
-void Setup::build_pmm()
-{
-    db<Setup>(TRC) << "Setup::build_pmm()" << endl;
-
-    // Allocate (reserve) memory for all entities we have to setup.
-    // We'll start at the highest address to make possible a memory model
-    // on which the application's logical and physical address spaces match.
-
-    Phy_Addr top_page = MMU::pages(si->bm.mem_top);
-
-    // Machine to Supervisor code (1 x sizeof(Page), not listed in the PMM)
-    top_page -= 1;
-
-    // System Page Directory (1 x sizeof(Page))
-    top_page -= 1;
-    si->pmm.sys_pd = top_page * sizeof(Page);
-
-    // System Page Table (1 x sizeof(Page))
-    top_page -= 1;
-    si->pmm.sys_pt = top_page * sizeof(Page);
-
-    // Page tables to map the whole physical memory
-    // = NP/NPTE_PT * sizeof(Page)
-    //   NP = size of physical memory in pages
-    //   NPTE_PT = number of page table entries per page table
-    top_page -= MMU::page_tables(MMU::pages(si->bm.mem_top - si->bm.mem_base));
-    si->pmm.phy_mem_pts = top_page * sizeof(Page);
-
-    // Page tables to map the IO address space
-    // = NP/NPTE_PT * sizeof(Page)
-    // NP = size of I/O address space in pages
-    // NPTE_PT = number of page table entries per page table
-    top_page -= MMU::page_tables(MMU::pages(si->bm.mio_top - si->bm.mio_base));
-    si->pmm.io_pts = top_page * sizeof(Page);
-
-    // Page tables to map the first APPLICATION code segment
-    top_page -= MMU::page_tables(MMU::pages(si->lm.app_code_size));
-    si->pmm.app_code_pts = top_page * sizeof(Page);
-
-    // Page tables to map the first APPLICATION data segment (which contains heap, stack and extra)
-    top_page -= MMU::page_tables(MMU::pages(si->lm.app_data_size));
-    si->pmm.app_data_pts = top_page * sizeof(Page);
-
-    // System Info (1 x sizeof(Page))
-    top_page -= 1;
-    si->pmm.sys_info = top_page * sizeof(Page);
-
-    // SYSTEM code segment
-    top_page -= MMU::pages(si->lm.sys_code_size);
-    si->pmm.sys_code = top_page * sizeof(Page);
-
-    // SYSTEM data segment
-    top_page -= MMU::pages(si->lm.sys_data_size);
-    si->pmm.sys_data = top_page * sizeof(Page);
-
-    // SYSTEM stack segment
-    top_page -= MMU::pages(si->lm.sys_stack_size);
-    si->pmm.sys_stack = top_page * sizeof(Page);
-
-    // The memory allocated so far will "disappear" from the system as we set mem_top as follows:
-    si->pmm.usr_mem_base = si->bm.mem_base;
-    si->pmm.usr_mem_top = top_page * sizeof(Page);
-
-    // APPLICATION code segment
-    top_page -= MMU::pages(si->lm.app_code_size);
-    si->pmm.app_code = top_page * sizeof(Page);
-
-    // APPLICATION data segment (contains stack, heap and extra)
-    top_page -= MMU::pages(si->lm.app_data_size);
-    si->pmm.app_data = top_page * sizeof(Page);
-
-    // Free chunks (passed to MMU::init)
-    si->pmm.free1_base = si->bm.mem_base;
-    si->pmm.free1_top = top_page * sizeof(Page);
-
-    // Test if we didn't overlap SETUP and the boot image
-    if(si->pmm.usr_mem_top <= si->lm.stp_code + si->lm.stp_code_size + si->lm.stp_data_size) {
-        db<Setup>(ERR) << "SETUP would have been overwritten!" << endl;
-        panic();
-    }
-}
-
-
-void Setup::setup_sys_pt()
-{
-    db<Setup>(TRC) << "Setup::setup_sys_pt()" << endl;
-
-    // Get the physical address for the SYSTEM Page Table
-    PT_Entry * sys_pt = reinterpret_cast<PT_Entry *>(si->pmm.sys_pt);
-
-    // Clear the System Page Table
-    memset(sys_pt, 0, sizeof(Page));
-
-    // System Info
-    sys_pt[MMU::page(SYS_INFO)] = MMU::phy2pte(si->pmm.sys_info, RV64_Flags::SYS);
-
-    // Set an entry to this page table, so the system can access it later
-    sys_pt[MMU::page(SYS_PT)] = MMU::phy2pte(si->pmm.sys_pt, RV64_Flags::SYS);
-
-    // System Page Directory
-    sys_pt[MMU::page(SYS_PD)] = MMU::phy2pte(si->pmm.sys_pd, RV64_Flags::SYS);
-
-    unsigned long i;
-    PT_Entry aux;
-
-    // SYSTEM code
-    for(i = 0, aux = si->pmm.sys_code; i < MMU::pages(si->lm.sys_code_size); i++, aux = aux + sizeof(Page))
-        sys_pt[MMU::page(SYS_CODE) + i] = MMU::phy2pte(aux, RV64_Flags::SYS);
-
-    // SYSTEM data
-    for(i = 0, aux = si->pmm.sys_data; i < MMU::pages(si->lm.sys_data_size); i++, aux = aux + sizeof(Page))
-        sys_pt[MMU::page(SYS_DATA) + i] = MMU::phy2pte(aux, RV64_Flags::SYS);
-
-    // SYSTEM stack (used only during init and for the ukernel model)
-    for(i = 0, aux = si->pmm.sys_stack; i < MMU::pages(si->lm.sys_stack_size); i++, aux = aux + sizeof(Page))
-        sys_pt[MMU::page(SYS_STACK) + i] = MMU::phy2pte(aux, RV64_Flags::SYS);
-}
-
-void Setup::setup_sys_pd() {
-    db<Setup>(TRC) << "Setup::setup_sys_pd()" << endl;
-    // Get the physical address for the System Page Directory
-    PT_Entry * sys_pd = reinterpret_cast<PT_Entry *>(si->pmm.sys_pd);
-
-    // Clear the System Page Directory
-    memset(sys_pd, 0, sizeof(Page));
-
-    // Calculate the number of page tables needed to map the physical memory
-    unsigned int mem_size = MMU::pages(si->bm.mem_top - si->bm.mem_base);
-    int n_pts = MMU::page_tables(mem_size);
-
-    // Map the whole physical memory into the page tables pointed by phy_mem_pts
-    PT_Entry * pts = reinterpret_cast<PT_Entry *>(si->pmm.phy_mem_pts);
-    for(unsigned int i = 0; i < mem_size; i++)
-        pts[i] = MMU::phy2pte((si->bm.mem_base + i * sizeof(Page)), RV64_Flags::SYS);
-
-    // Attach all physical memory starting at PHY_MEM
-    for(unsigned int i = MMU::directory(MMU::align_directory(PHY_MEM)), j = 0; i < MMU::directory(MMU::align_directory(PHY_MEM)) + n_pts; i++, j++)
-        sys_pd[i] = MMU::phy2pde(si->pmm.phy_mem_pts + j * sizeof(Page));
-
-    // Attach the portion of the physical memory used by Setup at SETUP
-    sys_pd[MMU::directory(SETUP)] =  MMU::phy2pde(si->pmm.phy_mem_pts);
-
-    // Attach the portion of the physical memory used by int_m2s at RAM_TOP
-    sys_pd[MMU::directory(RAM_TOP)] =  MMU::phy2pde(si->pmm.phy_mem_pts + (n_pts - 1) * sizeof(Page));
-
-    // Attach all physical memory starting at RAM_BASE
-    for(unsigned int i = MMU::directory(MMU::align_directory(RAM_BASE)), j = 0; i < MMU::directory(MMU::align_directory(RAM_BASE)) + n_pts; i++, j++)
-        sys_pd[i] = MMU::phy2pde((si->pmm.phy_mem_pts + j * sizeof(Page)));
-
-    // Calculate the number of page tables needed to map the IO address space
-    unsigned int io_size = MMU::pages(si->bm.mio_top - si->bm.mio_base);
-    n_pts = MMU::page_tables(io_size);
-
-    // Map IO address space into the page tables pointed by io_pts
-    pts = reinterpret_cast<PT_Entry *>(si->pmm.io_pts);
-    for(unsigned int i = 0; i < io_size; i++)
-        pts[i] = MMU::phy2pte((si->bm.mio_base + i * sizeof(Page)), RV64_Flags::IO);
-
-    // Attach devices' memory at Memory_Map::IO
-    for(unsigned int i = MMU::directory(MMU::align_directory(IO)), j = 0; i < MMU::directory(MMU::align_directory(IO)) + n_pts; i++, j++)
-        sys_pd[i] = MMU::phy2pde((si->pmm.io_pts + j * sizeof(Page)));
-
-    // Attach the OS (i.e. sys_pt)
-    sys_pd[MMU::directory(SYS)] = MMU::phy2pde(si->pmm.sys_pt);
-
-    // Attach the first APPLICATION CODE (i.e. app_code_pt)
-    n_pts = MMU::page_tables(MMU::pages(si->lm.app_code_size));
-    for(unsigned int i = MMU::directory(MMU::align_directory(si->lm.app_code)), j = 0; i < MMU::directory(MMU::align_directory(si->lm.app_code)) + n_pts; i++, j++)
-        sys_pd[i] = MMU::phy2pde(si->pmm.app_code_pts + j * sizeof(Page));
-
-    // Attach the first APPLICATION DATA (i.e. app_data_pt, containing heap, stack and extra)
-    n_pts = MMU::page_tables(MMU::pages(si->lm.app_data_size));
-    for(unsigned int i = MMU::directory(MMU::align_directory(si->lm.app_data)), j = 0; i < MMU::directory(MMU::align_directory(si->lm.app_data)) + n_pts; i++, j++)
-        sys_pd[i] = MMU::phy2pde(si->pmm.app_data_pts + j * sizeof(Page));
-}
-
 void Setup::enable_paging()
 {
     db<Setup>(TRC) << "Setup::enable_paging()" << endl;
-    if(Traits<Setup>::hysterically_debugged) {
-        db<Setup>(INF) << "pc=" << CPU::pc() << endl;
-        db<Setup>(INF) << "sp=" << reinterpret_cast<void *>(CPU::sp()) << endl;
+
+    // 1024
+    unsigned long page_tables = MMU::page_tables(MMU::pages(Memory_Map::RAM_TOP - Memory_Map::RAM_BASE));
+
+    // local das tabelas lv2 e lv1
+    unsigned long *page_tables_location = reinterpret_cast<unsigned long*>((PAGE_TABLES + sizeof(MMU::Page) - 1) & ~(sizeof(MMU::Page) - 1));
+    
+    // o ponteiro para a primeira tabela lv2
+    Page_Directory* _pd_master = MMU::current();
+    _pd_master = new (page_tables_location) Page_Directory();
+
+    // avançamos 512 * 8 (long), aritmética de ponteiros
+    page_tables_location = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + (PAGE_ENTRIES * 8));
+    // cria ptes, com flag valid nos endereços, shiftando de 512?
+    _pd_master->remap_d(page_tables_location, 0, PAGE_ENTRIES);
+    // pte's addresses
+    // addr = page_tables_location
+    // addr = page_tables_location + 0x1000
+    // addr = page_tables_location + 0x2000
+    // ....
+    // addr = page_tables_location + 0x200000
+
+    page_tables_location = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + PAGE_ENTRIES);
+    unsigned long *mem = reinterpret_cast<unsigned long*>(RAM_BASE);
+
+    // recuperamos o endereço do primeiro elemento da PD, e shiftamos de 2 para esquerda
+    // realizando o alinhamento a 12 bits.
+    for (unsigned long i = 0; i < PD_ENTRIES_LV1; i++) { // 0..511
+        Page_Directory * pd_lv1 = new (reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + (0x1000UL * (i + 1)))) Page_Directory();
+        // pd_lv1_location/addr = page_tables_location + 0x200000
+        // addr = page_tables_location + 0x201000
+        // ....
+        // pd_lv1_location/addr = page_tables_location + 0x400000
+        // addr = page_tables_location + 0x401000
+        // ...
+        // pd_lv1_location = page_tables_location + 0x600000
+        unsigned long * pd_lv1_location = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + (0x200000UL * (i + 1)));
+        // db<Setup>(INF) << "i=" << i << ", pd_lv1_location=" << pd_lv1_location << endl;
+        pd_lv1->remap_d(pd_lv1_location, 0, PAGE_ENTRIES);
+        for (unsigned long j = 0; j < PT_ENTRIES_LV0; j++) { // 0..511
+            unsigned long * pd_lv0_location = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(pd_lv1_location) + ((0x1000UL) * (j + 1)));
+            Page_Table * pt_lv0 = new (pd_lv0_location) Page_Table();
+            // db<Setup>(INF) << "j=" << j << ", pd_lv0_location=" << pd_lv0_location << endl;
+            
+            // addr = RAM_BASE + 0x200000
+            // addr = RAM_BASE + 0x201000
+            // addr = RAM_BASE + 0x400000
+            // addr = RAM_BASE + 0x400000
+            // ....
+            // addr = RAM_BASE + 0x400000
+            pt_lv0->remap(mem, 0, PAGE_ENTRIES, RV64_Flags::SYS);
+            mem = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(mem) + PAGE_ENTRIES);
+        }
     }
 
     // Set SATP and enable paging
-    CPU::satp((1UL << 63) | (si->pmm.sys_pd));
+    // CPU::satp((1UL << 63) | (reinterpret_cast<unsigned long>(_pd_master) >> 12));
 
     // Flush TLB to ensure we've got the right memory organization
     MMU::flush_tlb();
-
-    if(Traits<Setup>::hysterically_debugged) {
-        db<Setup>(INF) << "pc=" << CPU::pc() << endl;
-        db<Setup>(INF) << "sp=" << reinterpret_cast<void *>(CPU::sp()) << endl;
-    }
 }
 
 void Setup::call_next() {

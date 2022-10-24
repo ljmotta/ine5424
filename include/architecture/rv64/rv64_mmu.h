@@ -57,7 +57,7 @@ public:
             CT          = 1 << 8, // Contiguous (reserved for use by supervisor RSW)
             MIO         = 1 << 9, // I/O (reserved for use by supervisor RSW)
 
-            SYS  = (VALID | READ | WRITE | EXECUTE),
+            SYS  = (VALID | READ | WRITE | EXECUTE | ACCESSED | DIRTY),
             APP  = (VALID | READ | WRITE | EXECUTE | USER),
             APPC = (VALID | READ | EXECUTE | USER),
             APPD = (VALID | READ | WRITE | USER),
@@ -88,7 +88,7 @@ public:
 public:
     // qtt of pages in n bytes
     constexpr static unsigned long pages(unsigned long bytes) { return (bytes + sizeof(Page) - 1) / sizeof(Page); }
-    // qtt of tables for the qtt of pages
+    // qtt of tables for the qtt of pages lv1!
     constexpr static unsigned long page_tables(unsigned long pages) { return sizeof(Page) > sizeof(long) ? (pages + PT_ENTRIES - 1) / PT_ENTRIES : 0; }
 
     constexpr static unsigned long offset(const Log_Addr & addr) { return addr & (sizeof(Page) - 1); }
@@ -153,7 +153,17 @@ public:
             addr = align_page(addr);
             for( ; from < to; from++) {
                 _pte[from] = phy2pte(addr, flags);
+                // db<MMU>(TRC) << "MMU::remap(addr=" << addr << ", from=" << from << ", to=" << to << endl;
                 addr += sizeof(Page);
+            }
+        }
+
+        void remap_d(Phy_Addr addr, unsigned long from, unsigned long to) {
+            addr = align_page(addr);
+            for( ; from < to; from++) {
+                _pte[from] = phy2pde(addr);
+                // db<MMU>(TRC) << "MMU::remap(addr=" << addr << ", from=" << from << ", to=" << to << endl;
+                addr += sizeof(Page); // 4096
             }
         }
 
