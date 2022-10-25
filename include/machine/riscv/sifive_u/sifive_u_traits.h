@@ -53,8 +53,8 @@ public:
     static const unsigned long APP_LOW           = 0x0000000080000000;      // ram is mapped to app 1:1
     static const unsigned long APP_CODE          = APP_LOW;                 // 
     static const unsigned long APP_DATA          = APP_CODE + 0x400000;     // data code should be below boot_stack
-    static const unsigned long APP_HIGH          = 0x0000002fffffffff;      // 256 GB
-    static const unsigned long PHY_MEM           = 0x0000003000000000;      // starts at RAM_BASE 1 <-> 1 0x3000000000 to 0x3fffffffff
+    static const unsigned long APP_HIGH          = 0x0000003fffffffff;      // 256 GB
+    static const unsigned long PHY_MEM           = 0x0000004000000000;      // starts at RAM_BASE 1 <-> 1 0x3000000000 to 0x3fffffffff
 
     // Logical System Memory
     // Sv39, all bits from 63-39 must be equal to the bit 38

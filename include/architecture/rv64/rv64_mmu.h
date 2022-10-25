@@ -63,6 +63,9 @@ public:
             APPD = (VALID | READ | WRITE | USER),
             IO   = (SYS | MIO),
 
+            // requires ACCESSED and DIRTY for non leafs?
+            PD  = (VALID),
+
             MASK = ((0x3ffUL << 54) | (0xfffUL))
         };
 
@@ -152,8 +155,18 @@ public:
         void remap(Phy_Addr addr, unsigned long from, unsigned long to, Flags flags) {
             addr = align_page(addr);
             for( ; from < to; from++) {
-                // db<MMU>(TRC) << "MMU::remap(addr=" << addr << ", from=" << from << ", to=" << to << endl;
-                _pte[from] = phy2pte(addr, flags);
+                if (flags == Flags::SYS) {
+                    // db<MMU>(TRC) << "MMU::remap(addr=" << addr << ", from=" << from << ", to=" << to << endl;
+                }
+                if (flags == Flags::SYS) {
+                    // db<MMU>(TRC) << "MMU::remap(_pte[0]=" << _pte[0] << endl;
+                }
+                PT_Entry temp = phy2pte(addr, flags);
+                if (flags == Flags::SYS) {
+                    // db<MMU>(TRC) << "MMU::remap(temp" << temp << endl;
+                }
+                _pte[from] = temp;
+
                 addr += sizeof(Page); // 4096
             }
         }
@@ -426,7 +439,10 @@ public:
 
     // PNN -> PTE
     static PT_Entry phy2pte(Phy_Addr frame, Flags flags) {
-        return ((frame & ~Flags::MASK) >> 2) | flags | Flags::ACCESSED | Flags::DIRTY;
+        // if (flags == Flags::SYS) {
+        //     db<MMU>(TRC) << "MMU::phy2pte(frame" << frame << endl;
+        // }
+        return ((frame & ~Flags::MASK) >> 2) | flags;
     }
     // PNN -> PDE (X | R | W = 0)
     static PD_Entry phy2pde(Phy_Addr frame) {
