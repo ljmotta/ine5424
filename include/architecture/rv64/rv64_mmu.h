@@ -152,17 +152,17 @@ public:
         void remap(Phy_Addr addr, unsigned long from, unsigned long to, Flags flags) {
             addr = align_page(addr);
             for( ; from < to; from++) {
-                _pte[from] = phy2pte(addr, flags);
                 // db<MMU>(TRC) << "MMU::remap(addr=" << addr << ", from=" << from << ", to=" << to << endl;
-                addr += sizeof(Page);
+                _pte[from] = phy2pte(addr, flags);
+                addr += sizeof(Page); // 4096
             }
         }
 
         void remap_d(Phy_Addr addr, unsigned long from, unsigned long to) {
             addr = align_page(addr);
             for( ; from < to; from++) {
-                _pte[from] = phy2pde(addr);
                 // db<MMU>(TRC) << "MMU::remap(addr=" << addr << ", from=" << from << ", to=" << to << endl;
+                _pte[from] = phy2pde(addr);
                 addr += sizeof(Page); // 4096
             }
         }

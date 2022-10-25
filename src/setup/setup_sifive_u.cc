@@ -66,7 +66,7 @@ private:
     static const unsigned long PAGE_SIZE         = Traits<Machine>::PAGE_SIZE;  // 8 * 512 = 4kb
     static const unsigned long PT_ENTRIES_LV0    = 512;               // 512 entradas de 4kB
     static const unsigned long PD_ENTRIES_LV1    = 512;                // 32 entradas de 2MB
-    static const unsigned long PD_ENTRIES_LV2    = 512;                 // 1 entrada LV2
+    static const unsigned long PD_ENTRIES_LV2    = 2;                 // 1 entrada LV2
     static const unsigned long ENTRIES_SIZE      = (1 + PD_ENTRIES_LV2 + PD_ENTRIES_LV1 + PT_ENTRIES_LV0) * PAGE_SIZE; // 0x221000 ~2MB
 
     // Architecture Imports
@@ -82,7 +82,6 @@ private:
     // System_Info Imports
     typedef System_Info::Boot_Map BM;
     typedef System_Info::Physical_Memory_Map PMM;
-
 
 public:
     Setup();
@@ -120,7 +119,6 @@ Setup::Setup()
     call_next();
 }
 
-
 void Setup::say_hi()
 {
     db<Setup>(TRC) << "Setup::say_hi()" << endl;
@@ -155,49 +153,52 @@ void Setup::say_hi()
 
 void Setup::enable_paging()
 {
-    db<Setup>(TRC) << "Setup::enable_paging()" << endl;
+    // db<Setup>(TRC) << "Setup::enable_paging()" << endl;
 
     // 1024
-    unsigned long page_tables = MMU::page_tables(MMU::pages(Memory_Map::RAM_TOP - Memory_Map::RAM_BASE));
+    // unsigned long page_tables = MMU::page_tables(MMU::pages(Memory_Map::RAM_TOP - Memory_Map::RAM_BASE));
+    unsigned long *mem = reinterpret_cast<unsigned long*>(RAM_BASE);
 
     // local das tabelas lv2 e lv1
     unsigned long *page_tables_location = reinterpret_cast<unsigned long*>((PAGE_TABLES + sizeof(MMU::Page) - 1) & ~(sizeof(MMU::Page) - 1));
-    
+
     // o ponteiro para a primeira tabela lv2
     Page_Directory* _pd_master = MMU::current();
     _pd_master = new (page_tables_location) Page_Directory();
 
     // avançamos 512 * 8 (long), aritmética de ponteiros
-    page_tables_location = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + (PAGE_ENTRIES * 8));
-    // cria ptes, com flag valid nos endereços, shiftando de 512?
-    _pd_master->remap_d(page_tables_location, 0, PAGE_ENTRIES);
+    page_tables_location = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + (PAGE_SIZE));
+    db<Setup>(INF) << "page_tables_location=" << page_tables_location << endl;
     // pte's addresses
-    // addr = page_tables_location
     // addr = page_tables_location + 0x1000
     // addr = page_tables_location + 0x2000
-    // ....
-    // addr = page_tables_location + 0x200000
-
-    page_tables_location = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + PAGE_ENTRIES);
-    unsigned long *mem = reinterpret_cast<unsigned long*>(RAM_BASE);
+    _pd_master->remap_d(page_tables_location, 0, PD_ENTRIES_LV2);
 
     // recuperamos o endereço do primeiro elemento da PD, e shiftamos de 2 para esquerda
     // realizando o alinhamento a 12 bits.
-    for (unsigned long i = 0; i < PD_ENTRIES_LV1; i++) { // 0..511
-        Page_Directory * pd_lv1 = new (reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + (0x1000UL * (i + 1)))) Page_Directory();
-        // pd_lv1_location/addr = page_tables_location + 0x200000
-        // addr = page_tables_location + 0x201000
+    for (unsigned long i = 0; i < PD_ENTRIES_LV2; i++) { // 0..2
+        unsigned long * pd_lv2_entry = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + (PAGE_SIZE * (i + 1)));
+        db<Setup>(INF) << "pd_lv2_entry=" << pd_lv2_entry << endl;
+        // pd_lv2_location = page_tables_location + 0x1000
+        // pd_lv2_location = page_tables_location + 0x2000
+        // new table with 512 entries;
+        Page_Directory * pd_lv1 = new (pd_lv2_entry) Page_Directory();
+    
+        // pd_lv1 ficaram com os endereços menores, e lv0 começa logo depois
+        unsigned long * pd_lv1_entry_start = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + (PD_ENTRIES_LV2 * PAGE_SIZE));
+        // addr = page_tables_location + 0x3000
+        // addr = page_tables_location + 0x4000
+        // addr = page_tables_location + 0x5000
         // ....
-        // pd_lv1_location/addr = page_tables_location + 0x400000
-        // addr = page_tables_location + 0x401000
-        // ...
-        // pd_lv1_location = page_tables_location + 0x600000
-        unsigned long * pd_lv1_location = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(page_tables_location) + (0x200000UL * (i + 1)));
-        // db<Setup>(INF) << "i=" << i << ", pd_lv1_location=" << pd_lv1_location << endl;
-        pd_lv1->remap_d(pd_lv1_location, 0, PAGE_ENTRIES);
+        // addr = page_tables_location + 0x230000
+        pd_lv1->remap_d(pd_lv1_entry_start, 0, PD_ENTRIES_LV1);
+
+
         for (unsigned long j = 0; j < PT_ENTRIES_LV0; j++) { // 0..511
-            unsigned long * pd_lv0_location = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(pd_lv1_location) + ((0x1000UL) * (j + 1)));
-            Page_Table * pt_lv0 = new (pd_lv0_location) Page_Table();
+            unsigned long * pd_lv1_entry_current = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(pd_lv1_entry_start) + ((PAGE_SIZE) * (j)));
+            db<Setup>(INF) << "pd_lv1_entry_current=" << pd_lv1_entry_current << endl;
+            // create new table with 512 entries
+            Page_Table * pt_lv0 = new (pd_lv1_entry_current) Page_Table();
             // db<Setup>(INF) << "j=" << j << ", pd_lv0_location=" << pd_lv0_location << endl;
             
             // addr = RAM_BASE + 0x200000
@@ -206,16 +207,18 @@ void Setup::enable_paging()
             // addr = RAM_BASE + 0x400000
             // ....
             // addr = RAM_BASE + 0x400000
-            pt_lv0->remap(mem, 0, PAGE_ENTRIES, RV64_Flags::SYS);
-            mem = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(mem) + PAGE_ENTRIES);
+            pt_lv0->remap(mem, 0, PT_ENTRIES_LV0, RV64_Flags::SYS);
+            mem = reinterpret_cast<unsigned long *>(reinterpret_cast<unsigned long>(mem) + (PAGE_SIZE));
         }
     }
 
+    db<Setup>(INF) << "Set SATP" << endl;
     // Set SATP and enable paging
-    // CPU::satp((1UL << 63) | (reinterpret_cast<unsigned long>(_pd_master) >> 12));
+    CPU::satp((1UL << 63) | (reinterpret_cast<unsigned long>(_pd_master) >> 12));
 
+    // db<Setup>(INF) << "Flush TLB" << endl;
     // Flush TLB to ensure we've got the right memory organization
-    MMU::flush_tlb();
+    // MMU::flush_tlb();
 }
 
 void Setup::call_next() {
