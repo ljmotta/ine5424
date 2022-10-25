@@ -64,7 +64,7 @@ public:
             IO   = (SYS | MIO),
 
             // requires ACCESSED and DIRTY for non leafs?
-            PD  = (VALID),
+            PD  = (VALID | ACCESSED | DIRTY),
 
             MASK = ((0x3ffUL << 54) | (0xfffUL))
         };
@@ -154,29 +154,17 @@ public:
 
         void remap(Phy_Addr addr, unsigned long from, unsigned long to, Flags flags) {
             addr = align_page(addr);
-            for( ; from < to; from++) {
-                if (flags == Flags::SYS) {
-                    // db<MMU>(TRC) << "MMU::remap(addr=" << addr << ", from=" << from << ", to=" << to << endl;
-                }
-                if (flags == Flags::SYS) {
-                    // db<MMU>(TRC) << "MMU::remap(_pte[0]=" << _pte[0] << endl;
-                }
-                PT_Entry temp = phy2pte(addr, flags);
-                if (flags == Flags::SYS) {
-                    // db<MMU>(TRC) << "MMU::remap(temp" << temp << endl;
-                }
-                _pte[from] = temp;
-
-                addr += sizeof(Page); // 4096
+            for(unsigned int i = from; i < to; i++) {
+                _pte[i] = phy2pte(addr, flags);
+                addr += sizeof(Page);
             }
         }
 
-        void remap_d(Phy_Addr addr, unsigned long from, unsigned long to) {
+        void remap_d(Phy_Addr addr, unsigned long from, unsigned long to, Flags flags) {
             addr = align_page(addr);
-            for( ; from < to; from++) {
-                // db<MMU>(TRC) << "MMU::remap(addr=" << addr << ", from=" << from << ", to=" << to << endl;
-                _pte[from] = phy2pde(addr);
-                addr += sizeof(Page); // 4096
+            for(unsigned int i = from; i < to; i++) {
+                _pte[i] = phy2pte(addr, flags);
+                addr += 0x40000000UL;
             }
         }
 

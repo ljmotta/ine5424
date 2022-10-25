@@ -91,7 +91,7 @@ private:
     void enable_paging();
     void call_next();
     void panic() { Machine::panic(); }
-    unsigned long * pointer_transpose(unsigned long * pointer, unsigned long transpose, unsigned long mask);
+    unsigned long * add_to_pointer(unsigned long * pointer, unsigned long add, unsigned long mask);
 
 private:
     System_Info * si;
@@ -151,66 +151,57 @@ void Setup::say_hi()
     kout << endl;
 }
 
-unsigned long* Setup::pointer_transpose(unsigned long * pointer, unsigned long transpose, unsigned long mask = ~(0UL)) {
-    return reinterpret_cast<unsigned long *>((reinterpret_cast<unsigned long>(pointer) + transpose) & mask);
+unsigned long* Setup::add_to_pointer(unsigned long * pointer, unsigned long add, unsigned long mask = ~(0UL)) {
+    return reinterpret_cast<unsigned long *>((reinterpret_cast<unsigned long>(pointer) + add) & mask);
 }
 
 void Setup::enable_paging()
 {
-    unsigned long *mem = reinterpret_cast<unsigned long*>(RAM_BASE);
-    unsigned long *phy_mem = reinterpret_cast<unsigned long*>(PHY_MEM);
     unsigned long *page_tables_location = reinterpret_cast<unsigned long*>(PAGE_TABLES);
-    db<Setup>(TRC) << "Setup::enable_paging(mem=" << mem << ",phy_mem=" << phy_mem << ",page_tables_location=" << page_tables_location << ")" << endl;
+    db<Setup>(TRC) << "Setup::enable_paging(page_tables_location=" << page_tables_location << ")" << endl;
     
     // Create pointer for LV2
     Page_Directory* _pd_master = MMU::current();
     // Create a Page_Directory, now _pd_master points to pd_lv2
     _pd_master = new (page_tables_location) Page_Directory();
-
-    // _pd_master has 4kb (512ptes) so we need to transpose the page_tables_location pointer in 4kb
+    db<Setup>(INF) << "_pd_master=" << _pd_master << endl;
+    // _pd_master has 4kb (512ptes) so we need to advance the page_tables_location pointer in 4kb
     // page_tables_location = (page_tables_location + 0x1000)
-    page_tables_location = pointer_transpose(page_tables_location, PAGE_SIZE);
+    page_tables_location = add_to_pointer(page_tables_location, PAGE_SIZE);
 
     // We remap all pte's entries, the first pte points to the page_tables_location location
     // we have two pd_lv2 entries, so this will be the ptes addresses
-    // addr = (page_tables_location + 0x1000) + 0x0000
-    // addr = (page_tables_location + 0x1000) + 0x1000
-    _pd_master->remap(page_tables_location, 0, PD_ENTRIES_LV2, RV64_Flags::PD);
+    // addr = (page_tables_location + 0x1000) + 0x00000000
+    // addr = (page_tables_location + 0x1000) + 0x40000000
+    db<Setup>(INF) << "page_tables_location=" << page_tables_location << endl;
+    _pd_master->remap_d(page_tables_location, 0, PD_ENTRIES_LV2, RV64_Flags::PD);
 
-    // for every entry in the PD_LV0:
+    // for every entry in the PD_LV2:
     for (unsigned long i = 0; i < PD_ENTRIES_LV2; i++) { // 0..2
-        // Put the phy_mem pointer in the correct place: phy_mem + (512 * 4kb * i) i = (0..1)
-        // phy_mem = pointer_transpose(phy_mem, (PD_ENTRIES_LV1 * PAGE_SIZE * (i)));
-        // db<Setup>(INF) << "phy_mem=" << phy_mem << endl;
-
-        // We get the pd_lv2_entry pointer, which is the lv2 PTE made in _pd_master->remap!
+        ASM("");
         // pd_lv2_entry = (page_tables_location + 0x1000) + 0x0000
         // pd_lv2_entry = (page_tables_location + 0x1000) + 0x1000
-        unsigned long * pd_lv2_entry = pointer_transpose(page_tables_location, (PAGE_SIZE * i));
-        db<Setup>(INF) << "pd_lv2_entry=" << pd_lv2_entry << endl;
         // Create a new Page_Directory pd_lv1 in the pd_lv2_entry pointer;
-        Page_Directory * pd_lv1 = new (pd_lv2_entry) Page_Directory();
-    
+        db<Setup>(INF) << "pd_lv2_entry=" << page_tables_location << endl;
+        Page_Directory * pd_lv1 = new (page_tables_location) Page_Directory();
+        // Put the "page_tables_location" pointer in the correct place: page_tables_location + PAGE_SIZE
+        page_tables_location = add_to_pointer(page_tables_location, PAGE_SIZE);
+
+        // i = 0;
         // Inside pd_lv1 we remap phy_mem addresses
-        // addr = phy_mem
-        // addr = phy_mem + 0x1000
-        // addr = phy_mem + 0x2000
-        // ....
-        // addr = phy_mem + 0x200000
-        pd_lv1->remap(mem, 0, PD_ENTRIES_LV1, RV64_Flags::PD);
+        // addr = ((page_tables_location + 0x1000) + 0x0000) + 0x1000
+        // addr = ((page_tables_location + 0x1000) + 0x0000) + 0x2000
+        // ...
+        // addr = ((page_tables_location + 0x1000) + 0x0000) + 0x210000
+        pd_lv1->remap(page_tables_location, 0, PD_ENTRIES_LV1, RV64_Flags::PD);
 
         // for every entry in the PD_LV1:
         for (unsigned long j = 0; j < PD_ENTRIES_LV1; j++) { // 0..511
-            // Put the mem pointer in the correct place: mem + (4kb * j) j = (0..511)
-            mem = pointer_transpose(mem, (PAGE_SIZE * (j)));
-            db<Setup>(INF) << "mem=" << mem << endl;
-
-            // Get pd_lv1_entry, which is the mem location transposed of 4Kb * j (0..511)
-            unsigned long * pd_lv1_entry = pointer_transpose(phy_mem, (PAGE_SIZE * j));
-            db<Setup>(INF) << "pd_lv1_entry=" << pd_lv1_entry << endl;
-            // Create new Page_Tables in pt_lv0 in the pd_lv1_entry pointer (0x0000004000000000)
-            // use phy2log????
-            Page_Table * pt_lv0 = new (pd_lv1_entry) Page_Table();
+            ASM("");
+            // Create new Page_Tables in pt_lv0 in the pd_lv1_entry pointer
+            Page_Table * pt_lv0 = new (page_tables_location) Page_Table();
+            // Put the "page_tables_location" pointer in the correct place: page_tables_location + PAGE_SIZE
+            page_tables_location = add_to_pointer(page_tables_location, PAGE_SIZE);
 
             // Inside pd_lv1 we remap mem addresses
             // addr = mem
@@ -218,7 +209,7 @@ void Setup::enable_paging()
             // addr = mem + 0x2000
             // ....
             // addr = mem + 0x200000
-            pt_lv0->remap(mem, 0, PT_ENTRIES_LV0, RV64_Flags::SYS);
+            pt_lv0->remap((PT_ENTRIES_LV0 * PAGE_SIZE * j), 0, PT_ENTRIES_LV0, RV64_Flags::SYS);
         }
     }
 
@@ -228,7 +219,7 @@ void Setup::enable_paging()
 
     db<Setup>(INF) << "Flush TLB" << endl;
     // Flush TLB to ensure we've got the right memory organization
-    MMU::flush_tlb();
+    // MMU::flush_tlb();
 }
 
 void Setup::call_next() {
