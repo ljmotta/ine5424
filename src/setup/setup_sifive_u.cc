@@ -161,7 +161,7 @@ void Setup::enable_paging()
     db<Setup>(TRC) << "Setup::enable_paging(page_tables_location=" << page_tables_location << ")" << endl;
     
     // Create pointer for LV2
-    Page_Directory* _pd_master = MMU::current();
+    Page_Directory* _pd_master = Sv39_MMU::current();
     // Create a Page_Directory, now _pd_master points to pd_lv2
     _pd_master = new (page_tables_location) Page_Directory();
     // _pd_master has 4kb (512ptes) so we need to advance the page_tables_location pointer in 4kb

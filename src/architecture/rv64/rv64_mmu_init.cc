@@ -7,7 +7,7 @@ extern "C" char _end;
 
 __BEGIN_SYS
 
-void MMU::init()
+void Sv39_MMU::init()
 {
     db<Init, MMU>(TRC) << "MMU::init()" << endl;
     db<Init, MMU>(INF) << "MMU::init::dat.e=" << &_edata << ",bss.b=" << &__bss_start << ",bss.e=" << &_end << endl;

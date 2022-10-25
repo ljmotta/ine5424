@@ -118,7 +118,7 @@ public:
 
 
 // use 3 levels of 2^9 entries with 2^12 page size;
-class MMU: public RV64_MMU_Common<3, 9, 12>
+class Sv39_MMU: public RV64_MMU_Common<3, 9, 12>
 {
     friend class CPU;
 
@@ -374,7 +374,7 @@ public:
     };
 
 public:
-    MMU() {}
+    Sv39_MMU() {}
 
     // _free is a list of frames.
     static Phy_Addr alloc(unsigned long frames = 1) {
@@ -428,9 +428,6 @@ public:
 
     // PNN -> PTE
     static PT_Entry phy2pte(Phy_Addr frame, Flags flags) {
-        // if (flags == Flags::SYS) {
-        //     db<MMU>(TRC) << "MMU::phy2pte(frame" << frame << endl;
-        // }
         return ((frame & ~Flags::MASK) >> 2) | flags;
     }
     // PNN -> PDE (X | R | W = 0)
@@ -438,7 +435,6 @@ public:
         return ((frame & ~Flags::MASK) >> 2) | Flags::VALID;
     }
 
-    // only necessary for multihart
     static void flush_tlb() { ASM("sfence.vma"); }
     static void flush_tlb(Log_Addr addr) {}
 
@@ -461,7 +457,7 @@ private:
     static Page_Directory *_master;
 };
 
-// class MMU: public Sv39_MMU {};
+class MMU: public Sv39_MMU {};
 
 __END_SYS
 
