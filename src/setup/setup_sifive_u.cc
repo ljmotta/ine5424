@@ -164,7 +164,6 @@ void Setup::enable_paging()
     Page_Directory* _pd_master = MMU::current();
     // Create a Page_Directory, now _pd_master points to pd_lv2
     _pd_master = new (page_tables_location) Page_Directory();
-    db<Setup>(INF) << "_pd_master=" << _pd_master << endl;
     // _pd_master has 4kb (512ptes) so we need to advance the page_tables_location pointer in 4kb
     // page_tables_location = (page_tables_location + 0x1000)
     page_tables_location = add_to_pointer(page_tables_location, PAGE_SIZE);
@@ -172,16 +171,14 @@ void Setup::enable_paging()
     // We remap all pte's entries, the first pte points to the page_tables_location location
     // we have two pd_lv2 entries, so this will be the ptes addresses
     // addr = (page_tables_location + 0x1000) + 0x000000
-    // addr = (page_tables_location + 0x1000) + 0x200000
-    db<Setup>(INF) << "page_tables_location=" << page_tables_location << endl;
+    // addr = (page_tables_location + 0x1000) + 0x201000
     _pd_master->remap_d(page_tables_location, 0, PD_ENTRIES_LV2, RV64_Flags::PD);
 
     // for every entry in the PD_LV2:
     for (unsigned long i = 0; i < PD_ENTRIES_LV2; i++) { // 0..2
         // pd_lv2_entry = (page_tables_location + 0x1000) + 0x000000
-        // pd_lv2_entry = (page_tables_location + 0x1000) + 0x200000
+        // pd_lv2_entry = (page_tables_location + 0x1000) + 0x201000
         // Create a new Page_Directory pd_lv1 in the pd_lv2_entry pointer;
-        db<Setup>(INF) << "pd_lv2_entry=" << page_tables_location << endl;
         Page_Directory * pd_lv1 = new (page_tables_location) Page_Directory();
         // Put the "page_tables_location" pointer in the correct place: page_tables_location + PAGE_SIZE
         page_tables_location = add_to_pointer(page_tables_location, PAGE_SIZE);
@@ -207,9 +204,7 @@ void Setup::enable_paging()
             // addr = mem + 0x2000
             // ....
             // addr = mem + 0x200000
-            // quando i = 1, j reseta. se i = 1, j = 512;
-            // 0x200000 * j (0..511)
-            pt_lv0->remap((PT_ENTRIES_LV0 * PAGE_SIZE * (j + (i * 512))), 0, PT_ENTRIES_LV0, RV64_Flags::SYS);
+            pt_lv0->remap((PT_ENTRIES_LV0 * PAGE_SIZE * (j + (i * PD_ENTRIES_LV1))), 0, PT_ENTRIES_LV0, RV64_Flags::SYS);
         }
     }
 
