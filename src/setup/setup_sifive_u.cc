@@ -66,7 +66,7 @@ private:
     static const unsigned long PAGE_SIZE         = Traits<Machine>::PAGE_SIZE;  // 8 * 512 = 4kb
     static const unsigned long PT_ENTRIES_LV0    = 512;               // 512 entradas de 4kB
     static const unsigned long PD_ENTRIES_LV1    = 512;                // 32 entradas de 2MB
-    static const unsigned long PD_ENTRIES_LV2    = 2;                 // 1 entrada LV2
+    static const unsigned long PD_ENTRIES_LV2    = 4;                 // 1 entrada LV2
     static const unsigned long ENTRIES_SIZE      = (1 + PD_ENTRIES_LV2 + PD_ENTRIES_LV1 + PT_ENTRIES_LV0) * PAGE_SIZE; // 0x221000 ~2MB
 
     // Architecture Imports
@@ -171,16 +171,15 @@ void Setup::enable_paging()
 
     // We remap all pte's entries, the first pte points to the page_tables_location location
     // we have two pd_lv2 entries, so this will be the ptes addresses
-    // addr = (page_tables_location + 0x1000) + 0x00000000
-    // addr = (page_tables_location + 0x1000) + 0x40000000
+    // addr = (page_tables_location + 0x1000) + 0x000000
+    // addr = (page_tables_location + 0x1000) + 0x200000
     db<Setup>(INF) << "page_tables_location=" << page_tables_location << endl;
     _pd_master->remap_d(page_tables_location, 0, PD_ENTRIES_LV2, RV64_Flags::PD);
 
     // for every entry in the PD_LV2:
     for (unsigned long i = 0; i < PD_ENTRIES_LV2; i++) { // 0..2
-        ASM("");
-        // pd_lv2_entry = (page_tables_location + 0x1000) + 0x0000
-        // pd_lv2_entry = (page_tables_location + 0x1000) + 0x1000
+        // pd_lv2_entry = (page_tables_location + 0x1000) + 0x000000
+        // pd_lv2_entry = (page_tables_location + 0x1000) + 0x200000
         // Create a new Page_Directory pd_lv1 in the pd_lv2_entry pointer;
         db<Setup>(INF) << "pd_lv2_entry=" << page_tables_location << endl;
         Page_Directory * pd_lv1 = new (page_tables_location) Page_Directory();
@@ -192,12 +191,11 @@ void Setup::enable_paging()
         // addr = ((page_tables_location + 0x1000) + 0x0000) + 0x1000
         // addr = ((page_tables_location + 0x1000) + 0x0000) + 0x2000
         // ...
-        // addr = ((page_tables_location + 0x1000) + 0x0000) + 0x210000
+        // addr = ((page_tables_location + 0x1000) + 0x0000) + 0x201000
         pd_lv1->remap(page_tables_location, 0, PD_ENTRIES_LV1, RV64_Flags::PD);
 
         // for every entry in the PD_LV1:
         for (unsigned long j = 0; j < PD_ENTRIES_LV1; j++) { // 0..511
-            ASM("");
             // Create new Page_Tables in pt_lv0 in the pd_lv1_entry pointer
             Page_Table * pt_lv0 = new (page_tables_location) Page_Table();
             // Put the "page_tables_location" pointer in the correct place: page_tables_location + PAGE_SIZE
@@ -209,7 +207,9 @@ void Setup::enable_paging()
             // addr = mem + 0x2000
             // ....
             // addr = mem + 0x200000
-            pt_lv0->remap((PT_ENTRIES_LV0 * PAGE_SIZE * j), 0, PT_ENTRIES_LV0, RV64_Flags::SYS);
+            // quando i = 1, j reseta. se i = 1, j = 512;
+            // 0x200000 * j (0..511)
+            pt_lv0->remap((PT_ENTRIES_LV0 * PAGE_SIZE * (j + (i * 512))), 0, PT_ENTRIES_LV0, RV64_Flags::SYS);
         }
     }
 

@@ -164,7 +164,7 @@ public:
             addr = align_page(addr);
             for(unsigned int i = from; i < to; i++) {
                 _pte[i] = phy2pte(addr, flags);
-                addr += 0x40000000UL;
+                addr += 0x201000UL;
             }
         }
 
