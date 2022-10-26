@@ -439,15 +439,7 @@ public:
 private:
     static void init();
     static Log_Addr phy2log(Phy_Addr phy) {
-        db<MMU>(TRC) << "MMU::phy2log(phy=" << phy << ", RAM_BASE=" << RAM_BASE << ", PHY_MEM=" << PHY_MEM <<  ")" << endl;
-        if (RAM_BASE < PHY_MEM) {
-            return Log_Addr(phy + (PHY_MEM - RAM_BASE));
-        }
-        if (RAM_BASE > PHY_MEM) {
-            return Log_Addr(phy - (RAM_BASE - PHY_MEM));
-        }
-        // RAM_BASE == PHY_MEM
-        return Log_Addr(phy);
+        return phy;
     }
 
 private:
