@@ -25,12 +25,19 @@ protected:
 
     // Page constants
     static const unsigned long PAGE_SHIFT = OFFSET_BITS;
-    static const unsigned long PAGE_SIZE = 1 << PAGE_SHIFT;
     // directory shift is where the directory starts; = bit 21; for sv39
     static const unsigned long DIRECTORY_SHIFT = OFFSET_BITS + PAGE_BITS; // 21
     static const unsigned long PAGE_TABLE_MASK = (1UL << (DIRECTORY_SHIFT) - 1); // 1..20
     static const unsigned long LOGICAL_ADDRESS_SIZE = ((PAGE_BITS * LEVELS) + OFFSET_BITS); // 39 for Sv39
     static const unsigned long LOGICAL_ADDRESS_MASK = (1UL << LOGICAL_ADDRESS_SIZE) - 1; // 0 to 38 for Sv39
+
+public:
+    // Number of entries in Page_Table and Page_Directory 9 = 512
+    static const unsigned long PAGE_SIZE = 1 << PAGE_SHIFT;
+    static const unsigned PT_ENTRIES = 1UL << PAGE_BITS; // 512
+    static const unsigned PT_MASK = PT_ENTRIES - 1; // 0..511
+    static const unsigned DIRECTORY_LV1_SHIFT = DIRECTORY_SHIFT; // 21
+    static const unsigned DIRECTORY_LV2_SHIFT = DIRECTORY_SHIFT + PAGE_BITS; // 30
 
 public:
     // Memory page
@@ -82,22 +89,23 @@ public:
         unsigned long _flags;
     };
 
-    // Number of entries in Page_Table and Page_Directory 9 = 512
-    static const unsigned  PT_ENTRIES = 1UL << PAGE_BITS; // 512
-    static const unsigned  PT_MASK = PT_ENTRIES - 1; // 0..511
-    static const unsigned  DIRECTORY_LV1_SHIFT = DIRECTORY_SHIFT; // 21
-    static const unsigned  DIRECTORY_LV2_SHIFT = DIRECTORY_SHIFT + PAGE_BITS; // 30
-
 public:
     // qtt of pages in n bytes
     constexpr static unsigned long pages(unsigned long bytes) { return (bytes + sizeof(Page) - 1) / sizeof(Page); }
     // qtt of tables for the qtt of pages lv1!
-    constexpr static unsigned long page_tables(unsigned long pages) { return sizeof(Page) > sizeof(long) ? (pages + PT_ENTRIES - 1) / PT_ENTRIES : 0; }
+    constexpr static unsigned long page_tables(unsigned long pages) {
+        unsigned long qtt_of_pages = (pages + PT_ENTRIES - 1 / PT_ENTRIES);
+        return (qtt_of_pages) > PT_ENTRIES ? PT_ENTRIES : (qtt_of_pages) ;
+    }
+    constexpr static unsigned long page_tables_lv2(unsigned long pages) {
+        unsigned long qtt_of_pages_lv2 = (pages + (PT_ENTRIES * PT_ENTRIES) - 1) / (PT_ENTRIES * PT_ENTRIES);
+        return qtt_of_pages_lv2 > PT_ENTRIES ? PT_ENTRIES : qtt_of_pages_lv2;
+    }
 
     constexpr static unsigned long offset(const Log_Addr & addr) { return addr & (sizeof(Page) - 1); }
-    // should signal extend last bit
+    // should signal extend bit 38
     constexpr static unsigned long indexes(const Log_Addr & addr) {
-        unsigned long addr_msb = addr >> (LOGICAL_ADDRESS_SIZE - 1); // 38
+        unsigned long addr_msb = addr >> (LOGICAL_ADDRESS_SIZE - 1);
         if (addr_msb) {
             return (addr | ~LOGICAL_ADDRESS_MASK) & ~(sizeof(Page) - 1);
         }
@@ -115,7 +123,6 @@ public:
     constexpr static Log_Addr align_directory(const Log_Addr & addr) { return (addr + PT_ENTRIES * sizeof(Page) - 1) &  ~(PT_ENTRIES * sizeof(Page) - 1); }
     constexpr static Log_Addr directory_bits(const Log_Addr & addr) { return (addr & ~((1 << PAGE_BITS) - 1)); }
 };
-
 
 // use 3 levels of 2^9 entries with 2^12 page size;
 class Sv39_MMU: public RV64_MMU_Common<3, 9, 12>
@@ -152,20 +159,11 @@ public:
             }
         }
 
-        void remap(Phy_Addr addr, unsigned long from, unsigned long to, Flags flags) {
+        void remap(Phy_Addr addr, unsigned long from, unsigned long to, Flags flags, unsigned long pace = sizeof(Page)) {
             addr = align_page(addr);
             for(unsigned int i = from; i < to; i++) {
                 _pte[i] = phy2pte(addr, flags);
-                addr += sizeof(Page);
-            }
-        }
-
-        void remap_d(Phy_Addr addr, unsigned long from, unsigned long to, Flags flags) {
-            addr = align_page(addr);
-            for(unsigned int i = from; i < to; i++) {
-                _pte[i] = phy2pte(addr, flags);
-                // 2mb + 4kb
-                addr += ((sizeof(Page) * PT_ENTRIES) + sizeof(Page));
+                addr += pace;
             }
         }
 
@@ -400,7 +398,7 @@ public:
     // starting the system, we free the entire ram;
     // the pagging system is only in virtual memory...
     static void free(Phy_Addr frame, unsigned long n = 1) {
-        frame = indexes(frame); // frame without offset
+        frame = indexes(frame);
 
         db<MMU>(TRC) << "MMU::free(frame=" << frame << ",n=" << n << ")" << endl;
 

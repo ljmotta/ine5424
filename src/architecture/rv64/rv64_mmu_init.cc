@@ -13,7 +13,10 @@ void Sv39_MMU::init()
     db<Init, MMU>(INF) << "MMU::init::dat.e=" << &_edata << ",bss.b=" << &__bss_start << ",bss.e=" << &_end << endl;
 
     // free all memory
-    free(Memory_Map::FREE_BASE, pages(Memory_Map::FREE_TOP - Memory_Map::FREE_BASE));
+    unsigned long qtt_of_pages = pages(Memory_Map::FREE_TOP - Memory_Map::FREE_BASE);
+    db<Init, MMU>(INF) << "MMU::init::qtt_of_pages=" << qtt_of_pages << ",FREE_BASE=" << hex << Memory_Map::FREE_BASE  << endl;
+
+    free(Memory_Map::FREE_BASE, qtt_of_pages);
 }
 
 __END_SYS

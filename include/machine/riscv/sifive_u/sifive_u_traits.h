@@ -22,9 +22,6 @@ public:
     static const unsigned long MAX_THREADS       = 16;
     static const unsigned long STACK_SIZE        = 65536;   // 64 kB (64 * 1024)
     static const unsigned long HEAP_SIZE         = 0x100000;    // 1 MB
-    static const unsigned long PAGE_SIZE_LEAF    = 0x200000;    // 2^21 2 MB
-    static const unsigned long PAGE_SIZE         = 0x1000;      // 2^12 4 kB
-    static const unsigned long PAGE_ENTRIES      = 512;         // 2^9
 
     // Physical Memory
     static const unsigned long RAM_BASE          = 0x0000000080000000;                           // 2 GB
@@ -32,7 +29,7 @@ public:
     static const unsigned long MIO_BASE          = 0x0000000000000000;
     static const unsigned long MIO_TOP           = 0x000000001fffffff;                            // 512 MB (max 512 MB of MIO => RAM + MIO < 2 GB)
     static const unsigned long BOOT_STACK        = RAM_TOP + 1 - STACK_SIZE;              // 64kB will be used as the stack's base, not the stack pointer
-    static const unsigned long PAGE_TABLES       = (BOOT_STACK) - ((1 + PAGE_ENTRIES + (PAGE_ENTRIES * PAGE_ENTRIES)) * PAGE_SIZE); // reserve PAGE_TABLES on the begining of the ram (1 PNN[2] + 512 PNN[1])
+    static const unsigned long PAGE_TABLES       = (BOOT_STACK) - ((1 + 512 + (512 * 512)) * 0x1000); // reserve PAGE_TABLES on the begining of the ram (1 PNN[2] + 512 PNN[1])
     static const unsigned long FREE_BASE         = RAM_BASE;                              // Free memory from RAM_BASE + PAGE_TABLE
     static const unsigned long FREE_TOP          = BOOT_STACK;
 

@@ -52,22 +52,6 @@ private:
     static const unsigned long SETUP            = Memory_Map::SETUP;
     static const unsigned long BOOT_STACK       = Memory_Map::BOOT_STACK;
     static const unsigned long PAGE_TABLES      = Memory_Map::PAGE_TABLES;
-    static const unsigned long IO               = Memory_Map::IO;
-    static const unsigned long SYS              = Memory_Map::SYS;
-    static const unsigned long SYS_INFO         = Memory_Map::SYS_INFO;
-    static const unsigned long SYS_PT           = Memory_Map::SYS_PT;
-    static const unsigned long SYS_PD           = Memory_Map::SYS_PD;
-    static const unsigned long SYS_CODE         = Memory_Map::SYS_CODE;
-    static const unsigned long SYS_DATA         = Memory_Map::SYS_DATA;
-    static const unsigned long SYS_STACK        = Memory_Map::SYS_STACK;
-    static const unsigned long APP_CODE         = Memory_Map::APP_CODE;
-    static const unsigned long APP_DATA         = Memory_Map::APP_DATA;
-    static const unsigned long PAGE_ENTRIES      = Traits<Machine>::PAGE_ENTRIES;               // quantidade de entradas numa página
-    static const unsigned long PAGE_SIZE         = Traits<Machine>::PAGE_SIZE;  // 8 * 512 = 4kb
-    static const unsigned long PT_ENTRIES_LV0    = 512;               // 512 entradas de 4kB
-    static const unsigned long PD_ENTRIES_LV1    = 512;                // 32 entradas de 2MB
-    static const unsigned long PD_ENTRIES_LV2    = 4;                 // 1 entrada LV2
-    static const unsigned long ENTRIES_SIZE      = (1 + PD_ENTRIES_LV2 + PD_ENTRIES_LV1 + PT_ENTRIES_LV0) * PAGE_SIZE; // 0x221000 ~2MB
 
     // Architecture Imports
     typedef CPU::Reg Reg;
@@ -157,6 +141,15 @@ unsigned long* Setup::add_to_pointer(unsigned long * pointer, unsigned long add,
 
 void Setup::enable_paging()
 {
+    // All memory available
+    unsigned int PAGE_SIZE = Sv39_MMU::PAGE_SIZE;
+    unsigned int PT_ENTRIES = Sv39_MMU::PT_ENTRIES;
+    unsigned long pages = MMU::pages(RAM_TOP);
+    unsigned int PD_ENTRIES_LV2 = Sv39_MMU::page_tables_lv2(pages);
+    unsigned int PD_ENTRIES_LV1 = Sv39_MMU::page_tables(pages);
+    unsigned int PT_ENTRIES_LV0 = pages > PT_ENTRIES ? PT_ENTRIES : pages;
+    db<Setup>(TRC) << "Setup MMU! (PD_ENTRIES_LV2=" << PD_ENTRIES_LV2 << ", PD_ENTRIES_LV1=" << PD_ENTRIES_LV1 << ", PT_ENTRIES_LV0=" << PT_ENTRIES_LV0 << ")" << endl;
+
     unsigned long *page_tables_location = reinterpret_cast<unsigned long*>(PAGE_TABLES);
     db<Setup>(TRC) << "Setup::enable_paging(page_tables_location=" << page_tables_location << ")" << endl;
     
@@ -172,7 +165,7 @@ void Setup::enable_paging()
     // we have two pd_lv2 entries, so this will be the ptes addresses
     // addr = (page_tables_location + 0x1000) + 0x000000
     // addr = (page_tables_location + 0x1000) + 0x201000
-    _pd_master->remap_d(page_tables_location, 0, PD_ENTRIES_LV2, RV64_Flags::PD);
+    _pd_master->remap(page_tables_location, 0, PD_ENTRIES_LV2, RV64_Flags::PD, ((PAGE_SIZE * PT_ENTRIES) + PAGE_SIZE));
 
     // for every entry in the PD_LV2:
     for (unsigned long i = 0; i < PD_ENTRIES_LV2; i++) { // 0..2
