@@ -10,8 +10,6 @@ void Timer::init()
 {
     db<Init, Timer>(TRC) << "Timer::init()" << endl;
 
-    assert(CPU::int_disabled());
-
     IC::int_vector(IC::INT_SYS_TIMER, int_handler);
 
     reset();

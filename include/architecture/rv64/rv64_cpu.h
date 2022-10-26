@@ -220,9 +220,9 @@ public:
     using CPU_Common::max_clock;
     using CPU_Common::bus_clock;
 
-    static void int_enable()  { mint_enable(); }
-    static void int_disable() { mint_disable(); }
-    static bool int_enabled() { return (mstatus() & MIE); }
+    static void int_enable()  { sint_enable(); }
+    static void int_disable() { sint_disable(); }
+    static bool int_enabled() { return (sstatus() & SIE); }
     static bool int_disabled() { return !int_enabled(); }
 
     static void halt() { ASM("wfi"); }
