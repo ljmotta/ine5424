@@ -241,7 +241,7 @@ namespace List_Elements
         typedef Doubly_Linked_Grouping Element;
 
     public:
-        Doubly_Linked_Grouping(const T * o, long s): _object(o), _size(s), _prev(0), _next(0) {}
+        Doubly_Linked_Grouping(const T * o, unsigned long s): _object(o), _size(s), _prev(0), _next(0) {}
 
         T * object() const { return const_cast<T *>(_object); }
 
@@ -1344,9 +1344,9 @@ public:
     using Base::print_head;
     using Base::print_tail;
 
-    unsigned int grouped_size() const { return _grouped_size; }
+    unsigned long grouped_size() const { return _grouped_size; }
 
-    Element * search_size(unsigned int s) {
+    Element * search_size(unsigned long s) {
         Element * e = head();
         if(sizeof(Object_Type) < sizeof(Element))
             for(; e && (e->size() < sizeof(Element) / sizeof(Object_Type) + s) && (e->size() != s); e = e->next());
@@ -1376,7 +1376,7 @@ public:
         }
     }
 
-    Element * search_decrementing(unsigned int s) {
+    Element * search_decrementing(unsigned long s) {
         db<Lists>(TRC) << "Grouping_List::search_decrementing(s=" << s << ")" << endl;
         print_head();
         print_tail();
@@ -1400,7 +1400,7 @@ private:
     }
 
 private:
-    unsigned int _grouped_size;
+    unsigned long _grouped_size;
 };
 
 __END_UTIL

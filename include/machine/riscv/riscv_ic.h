@@ -112,7 +112,7 @@ public:
 
     static void enable() {
         db<IC>(TRC) << "IC::enable()" << endl;
-        CPU::mie(CPU::MSI | CPU::MTI | CPU::MEI);
+        CPU::sie(CPU::SSI | CPU::STI | CPU::SEI);
     }
 
     static void enable(Interrupt_Id i) {
@@ -124,7 +124,7 @@ public:
 
     static void disable() {
         db<IC>(TRC) << "IC::disable()" << endl;
-        CPU::miec(CPU::MSI | CPU::MTI | CPU::MEI);
+        CPU::siec(CPU::SSI | CPU::STI | CPU::SEI);
     }
 
     static void disable(Interrupt_Id i) {

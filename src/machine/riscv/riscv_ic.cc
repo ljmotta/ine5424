@@ -26,11 +26,10 @@ void IC::entry()
 if(Traits<IC>::hysterically_debugged) {
     ASM("       jalr    %0                      \n" : : "r"(print_context));
 }
-
     // Restore context
     ASM("1:                                     \n");
     CPU::Context::pop(true);
-    CPU::iret();
+    CPU::sret();
 }
 
 void IC::dispatch()
@@ -59,11 +58,11 @@ void IC::int_not(Interrupt_Id id)
 
 void IC::exception(Interrupt_Id id)
 {
-    CPU::Reg epc = CPU::mepc();
+    CPU::Reg epc = CPU::sepc();
     CPU::Reg sp = CPU::sp();
-    CPU::Reg status = CPU::mstatus();
-    CPU::Reg cause = CPU::mcause();
-    CPU::Reg tval = CPU::mtval();
+    CPU::Reg status = CPU::sstatus();
+    CPU::Reg cause = CPU::scause();
+    CPU::Reg tval = CPU::stval();
     Thread * thread = Thread::self();
 
     db<IC,System>(WRN) << "IC::Exception(" << id << ") => {" << hex << "thread=" << thread << ",epc=" << epc << ",sp=" << sp << ",status=" << status << ",cause=" << cause << ",tval=" << tval << "}" << dec;
@@ -124,6 +123,7 @@ __END_SYS
 
 static void print_context() {
     __USING_SYS
+    // TODO: 32???
     db<IC, System>(TRC) << "IC::leave:ctx=" << *reinterpret_cast<CPU::Context *>(CPU::sp() + 32) << endl;
     CPU::fr(0);
 }
