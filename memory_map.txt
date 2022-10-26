@@ -39,11 +39,3 @@
 ;  :                       :
 ;  |                       |
 ; -+-----------------------+ 0xffffffffffffffff
-
-
-256GB
-max 256 Tabelas lv2, cada tabela lv2 tem 1gb
-cada tabela lv1 tem 2mb
-
-2gb -> 2 tabelas lv2, cada uma com 512 tabelas lv1
-

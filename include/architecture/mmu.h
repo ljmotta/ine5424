@@ -67,14 +67,12 @@ public:
         unsigned int _flags;
     };
 
-    // Number of entries in Page_Table and Page_Directory 9 = 512
+    // Number of entries in Page_Table and Page_Directory
     static const unsigned int PT_ENTRIES = 1 << PAGE_BITS;
     static const unsigned int PD_ENTRIES = 1 << DIRECTORY_BITS;
 
 public:
-    // qtt of pages in n bytes
     constexpr static unsigned long pages(unsigned long bytes) { return (bytes + sizeof(Page) - 1) / sizeof(Page); }
-    // qtt of tables for the qtt of pages
     constexpr static unsigned long page_tables(unsigned long pages) { return sizeof(Page) > sizeof(long) ? (pages + PT_ENTRIES - 1) / PT_ENTRIES : 0; }
 
     constexpr static unsigned long offset(const Log_Addr & addr) { return addr & (sizeof(Page) - 1); }

@@ -181,7 +181,6 @@ public:
         // _to = quantidade de páginas
         // _pts = quantidade total de páginas de 4kb.
         // _pt = endereço físico da alocação, um array de page tables; é alocado a quantidade de páginas necessária
-        // 
         Chunk(unsigned long bytes, Flags flags)
         : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Flags(flags)), _pt(calloc(_pts)) {
             _pt->map(_from, _to, _flags);
@@ -403,10 +402,7 @@ public:
         db<MMU>(TRC) << "MMU::free(frame=" << frame << ",n=" << n << ")" << endl;
 
         if(frame && n) {
-            Log_Addr place = phy2log(frame);
-            db<MMU>(TRC) << "MMU::free(place=" << place << ")" << endl;
-            List::Element * e = new (place) List::Element(frame, n);
-            db<MMU>(TRC) << "MMU::free(e=" << e << ")" << endl;
+            List::Element * e = new (phy2log(frame)) List::Element(frame, n);
             List::Element * m1, * m2;
             _free.insert_merging(e, &m1, &m2);
         }

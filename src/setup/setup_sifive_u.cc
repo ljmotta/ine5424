@@ -42,7 +42,6 @@ class Setup
 {
 private:
     // Physical memory map
-    static const unsigned long PHY_MEM          = Memory_Map::PHY_MEM;
     static const unsigned long RAM_BASE         = Memory_Map::RAM_BASE;
     static const unsigned long RAM_TOP          = Memory_Map::RAM_TOP;
     static const unsigned long MIO_BASE         = Memory_Map::MIO_BASE;
@@ -55,17 +54,9 @@ private:
 
     // Architecture Imports
     typedef CPU::Reg Reg;
-    typedef CPU::Phy_Addr Phy_Addr;
-    typedef CPU::Log_Addr Log_Addr;
     typedef MMU::Flags RV64_Flags;
     typedef MMU::Page_Table Page_Table;
     typedef MMU::Page_Directory Page_Directory;
-    typedef MMU::PT_Entry PT_Entry;
-    typedef MMU::Page Page;
-
-    // System_Info Imports
-    typedef System_Info::Boot_Map BM;
-    typedef System_Info::Physical_Memory_Map PMM;
 
 public:
     Setup();
@@ -74,12 +65,12 @@ private:
     void say_hi();
     void enable_paging();
     void call_next();
-    void panic() { Machine::panic(); }
     unsigned long * add_to_pointer(unsigned long * pointer, unsigned long add, unsigned long mask);
 
 private:
     System_Info * si;
 };
+
 
 Setup::Setup()
 {
@@ -97,11 +88,13 @@ Setup::Setup()
     // Print basic facts about this EPOS instance
     say_hi();
 
+    // maps all memory
     enable_paging();
 
     // SETUP ends here, so let's transfer control to the next stage (INIT or APP)
     call_next();
 }
+
 
 void Setup::say_hi()
 {
@@ -207,7 +200,7 @@ void Setup::enable_paging()
 
     db<Setup>(INF) << "Flush TLB" << endl;
     // Flush TLB to ensure we've got the right memory organization
-    // MMU::flush_tlb();
+    MMU::flush_tlb();
 }
 
 void Setup::call_next() {
