@@ -342,7 +342,7 @@ public:
     static void a1(Reg r) {  ASM("mv a1, %0" : : "r"(r) :); }
 
     static void ecall() { ASM("ecall"); }
-    static void iret() { mret(); }
+    static void iret() { sret(); }
 
     // Machine mode
     static void mint_enable()  { ASM("csrsi mstatus, %0" : : "i"(MIE) : "cc"); }
@@ -485,8 +485,8 @@ if(interrupt) {
 
     ASM("       ld       x3,    8(sp)           \n");   // pop ST into TMP
 if(!interrupt) {
-    ASM("       li       a0, 3 << 11            \n"     // use a0 as a second TMP, since it will be restored later
-        "       or       x3, x3, a0             \n");   // mstatus.MPP is automatically cleared on mret, so we reset it to MPP_M here
+    ASM("       li       a0, 1 << 8             \n"    // use a0 as a second TMP, since it will be restored later
+        "       or       x3, x3, a0             \n");  // sstatus.SPP = 1
 }
 
     ASM("       ld       x1,   16(sp)           \n"     // pop RA
@@ -519,7 +519,7 @@ if(!interrupt) {
         "       ld      x31,  232(sp)           \n"
         "       addi    sp, sp, %0              \n" : : "i"(sizeof(Context))); // complete the pops above by adjusting SP
 
-    ASM("       csrw    sstatus, x3             \n");   // MSTATUS = ST
+    ASM("       csrw    sstatus, x3             \n");   // SSTATUS = ST
 }
 
 inline CPU::Reg64 htole64(CPU::Reg64 v) { return CPU::htole64(v); }
