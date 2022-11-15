@@ -12,6 +12,7 @@ __END_UTIL
 __BEGIN_SYS
 
 volatile unsigned int Thread::_thread_count;
+volatile Task * Task::_active;
 Scheduler_Timer * Thread::_timer;
 Scheduler<Thread> Thread::_scheduler;
 
@@ -92,6 +93,9 @@ Thread::~Thread()
     unlock();
 
     delete _stack;
+
+    _task->address_space()->detach(_ustack);
+    delete _ustack;
 }
 
 
@@ -337,13 +341,11 @@ void Thread::dispatch(Thread * prev, Thread * next, bool charge)
         next->_state = RUNNING;
 
         db<Thread>(TRC) << "Thread::dispatch(prev=" << prev << ",next=" << next << ")" << endl;
-        if(Traits<Thread>::debugged && Traits<Debug>::info) {
-            CPU::Context tmp;
-            tmp.save();
-            db<Thread>(INF) << "Thread::dispatch:prev={" << prev << ",ctx=" << tmp << "}" << endl;
-        }
-        db<Thread>(INF) << "Thread::dispatch:next={" << next << ",ctx=" << *next->_context << "}" << endl;
+        db<Thread>(INF) << "prev={" << prev << ",ctx=" << *prev->_context << "}" << endl;
+        db<Thread>(INF) << "next={" << next << ",ctx=" << *next->_context << "}" << endl;
 
+        if(prev->_task != next->_task)
+            Task::activate(next->_task);
         // The non-volatile pointer to volatile pointer to a non-volatile context is correct
         // and necessary because of context switches, but here, we are locked() and
         // passing the volatile to switch_constext forces it to push prev onto the stack,

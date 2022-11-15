@@ -49,6 +49,7 @@ public:
             CT   = 1 << 7, // Contiguous (0=non-contiguous, 1=contiguous)
             IO   = 1 << 8, // Memory Mapped I/O (0=memory, 1=I/O)
             SYS  = (PRE | RD | RW | EX),
+            SHR  = (PRE | RD | RW | EX),
             APP  = (PRE | RD | RW | EX | USR),
             APPC = (PRE | RD | EX | USR),
             APPD = (PRE | RD | RW | USR)

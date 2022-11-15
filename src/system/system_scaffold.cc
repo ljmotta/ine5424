@@ -21,6 +21,9 @@ System_Info * System::_si = (Memory_Map::SYS_INFO != Memory_Map::NOT_USED) ? rei
 char System::_preheap[];
 Segment * System::_heap_segment;
 Heap * System::_heap;
+//System Shared Memory Attributes
+char Shared_Memory::_preheap[];
+Segment * Shared_Memory::_shared_segment;
 
 __END_SYS
 

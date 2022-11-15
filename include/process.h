@@ -50,6 +50,7 @@ public:
         NORMAL  = Criterion::NORMAL,
         LOW     = Criterion::LOW,
         MAIN    = Criterion::MAIN,
+        LOADER  = Criterion::LOADER,
         IDLE    = Criterion::IDLE
     };
 
@@ -177,6 +178,71 @@ public:
 private:
     Thread * _handler;
 };
+
+class Task
+{
+    friend class Thread; 
+
+private:
+    static const bool multitask = Traits<System>::multitask;
+    typedef CPU::Log_Addr Log_Addr;
+
+protected:
+    Task(Address_Space * as, Segment * cs, Segment * ds, int (* entry)())
+    : _as(as), _cs(cs), _ds(ds), _code(_as->attach(_cs, Memory_Map::APP_CODE)), _data(_as->attach(_ds, Memory_Map::APP_DATA)) {
+        db<Task>(TRC) << "Task(as=" << _as << ",cs=" << _cs << ",ds=" << _ds <<  ",code=" << _code << ",data=" << _data << ") => " << this << endl;
+        activate(this);
+        _main = new (SYSTEM) Thread(Thread::Configuration(Thread::RUNNING, Thread::LOADER, this), entry);
+    }
+
+public:
+    Task(Segment * cs, Segment * ds, int (* entry)())
+    : _as (new (SYSTEM) Address_Space), _cs(cs), _ds(ds), _code(_as->attach(_cs, Memory_Map::APP_CODE)), _data(_as->attach(_ds, Memory_Map::APP_DATA)) {
+        db<Task>(TRC) << "Task(as=" << _as << ",cs=" << _cs << ",ds=" << _ds <<  ",code=" << _code << ",data=" << _data << ") => " << this << endl;
+        _main = new (SYSTEM) Thread(Thread::Configuration(Thread::READY, Thread::MAIN, this), entry);
+    }
+    
+    ~Task(){
+        delete _main;
+        _as->detach(_cs, Memory_Map::APP_CODE);
+        _as->detach(_ds, Memory_Map::APP_DATA);
+        delete _cs;
+        delete _ds;
+        delete _as;
+    }
+    
+    static void activate(volatile Task * t) {
+        Task::_active = t;
+        t->_as->activate();
+    }
+
+    static Task * active() {
+        return const_cast<Task*>(_active);
+    }
+    
+    Thread * main() { return _main; }
+
+    Address_Space * address_space() const { return _as; }
+
+    Segment * code_segment() const { return _cs; }
+    Segment * data_segment() const { return _ds; }
+
+    Log_Addr code() const { return _code; }
+    Log_Addr data() const { return _data; }
+
+
+private:
+    Address_Space * _as;
+    Segment * _cs;
+    Segment * _ds;
+    Log_Addr _code;
+    Log_Addr _data;
+
+    Thread * _main;
+    static volatile Task * _active;
+
+};
+
 
 __END_SYS
 
